@@ -118,6 +118,28 @@ export default function CollaborationHub() {
     }
   }
 
+  async function updateStatus(newStatus: string) {
+    if (!selectedCollab) return;
+    const { error } = await supabase
+      .from('collaborations')
+      .update({ status: newStatus, last_activity_at: new Date().toISOString() })
+      .eq('id', selectedCollab.id);
+
+    if (error) {
+      toast.error('Failed to update status');
+    } else {
+      toast.success(`Moved to ${newStatus}`);
+      fetchCollaborations();
+      setSelectedCollab({ ...selectedCollab, status: newStatus });
+    }
+  }
+
+  const nextStatusMap: Record<string, string> = {
+    'proposed': 'collaborated',
+    'collaborated': 'interviewing',
+    'interviewing': 'placed'
+  };
+
   return (
     <div className="flex h-[calc(100vh-12rem)] bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-500">
       {/* Sidebar: All Collaborations */}
@@ -205,14 +227,67 @@ export default function CollaborationHub() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Approve & Move
-                  </button>
+                  {nextStatusMap[selectedCollab.status] && (
+                    <button 
+                      onClick={() => updateStatus(nextStatusMap[selectedCollab.status])}
+                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      Move to {nextStatusMap[selectedCollab.status].toUpperCase()}
+                    </button>
+                  )}
                   <button className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-900 transition-all">
                     <MoreVertical className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Pipeline Visualization */}
+            <div className="bg-white px-8 py-4 border-b border-slate-100 overflow-x-auto">
+              <div className="flex items-center justify-between min-w-[600px] py-4 px-2">
+                {[
+                  { id: 'proposed', label: 'Proposed', icon: Send },
+                  { id: 'collaborated', label: 'Handshake', icon: Zap },
+                  { id: 'interviewing', label: 'Interview', icon: User },
+                  { id: 'placed', label: 'Placed', icon: CheckCircle2 }
+                ].map((step, idx, arr) => {
+                  const isActive = selectedCollab.status === step.id;
+                  const isCompleted = arr.findIndex(s => s.id === selectedCollab.status) > idx;
+                  
+                  return (
+                    <React.Fragment key={step.id}>
+                      <div className="flex flex-col items-center gap-2 group cursor-pointer relative">
+                        <div className={cn(
+                          "w-10 h-10 rounded-2xl flex items-center justify-center transition-all border-2",
+                          isActive ? "bg-indigo-600 text-white border-indigo-600 scale-110 shadow-lg shadow-indigo-600/20" :
+                          isCompleted ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                          "bg-white text-slate-300 border-slate-100 group-hover:border-slate-200"
+                        )}>
+                          <step.icon className="w-5 h-5" />
+                        </div>
+                        <span className={cn(
+                          "text-[10px] font-black uppercase tracking-widest",
+                          isActive ? "text-indigo-600" : isCompleted ? "text-emerald-600" : "text-slate-400"
+                        )}>
+                          {step.label}
+                        </span>
+                        {isActive && (
+                          <motion.div 
+                            layoutId="active-glow"
+                            className="absolute -inset-2 bg-indigo-500/10 blur-xl rounded-full"
+                          />
+                        )}
+                      </div>
+                      {idx < arr.length - 1 && (
+                        <div className={cn(
+                          "flex-1 h-0.5 max-w-[80px] mx-4 rounded-full",
+                          isCompleted ? "bg-emerald-100" : "bg-slate-50"
+                        )} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             </div>
 

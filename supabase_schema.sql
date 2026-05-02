@@ -37,6 +37,24 @@ CREATE TABLE IF NOT EXISTS client_profiles (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Legacy Clients Table (to match existing code)
+CREATE TABLE IF NOT EXISTS clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company TEXT NOT NULL,
+  name TEXT,
+  email TEXT,
+  phone TEXT,
+  location TEXT,
+  industry TEXT,
+  budget TEXT,
+  contact_person TEXT,
+  website TEXT,
+  client_code TEXT,
+  notes TEXT,
+  company_id UUID REFERENCES companies(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 5. Jobs (Marketplace Ready)
 CREATE TABLE IF NOT EXISTS jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -143,7 +161,17 @@ CREATE TABLE IF NOT EXISTS deals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 11. Notifications
+-- 11. Resumes
+CREATE TABLE IF NOT EXISTS resumes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  source TEXT DEFAULT 'direct',
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 12. Notifications
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id),
@@ -156,11 +184,15 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE resumes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Resumes access" ON resumes
+  FOR ALL USING (true); -- Simplified for now, should be company based in production
+
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can only see their own notifications" ON notifications
   FOR SELECT USING (user_id = auth.uid());
 
--- 12. Security Policies (The Fortress)
+-- 13. Security Policies (The Fortress)
 -- Allow users to see their own profile
 CREATE POLICY "Users can view own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
@@ -202,6 +234,9 @@ CREATE POLICY "Message access" ON messages
 
 CREATE POLICY "Agent task access" ON agent_tasks
   FOR ALL USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+  
+CREATE POLICY "Client data access" ON clients
+  FOR ALL USING (true); -- Simplified for now, in prod should link to company_id
 
 CREATE POLICY "Deal access" ON deals
   FOR ALL USING (

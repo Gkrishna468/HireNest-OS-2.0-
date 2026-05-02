@@ -59,9 +59,63 @@ async function startServer() {
     }
   });
 
-  // 2. HEALTH CHECK
+  // 2. WHATSAPP WEBHOOK HANDLER
+  app.get("/api/webhooks/whatsapp", (req, res) => {
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "hirenest_verify_token";
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+      console.log("✅ WhatsApp Webhook Verified");
+      res.status(200).send(challenge);
+    } else {
+      res.status(403).send("Forbidden");
+    }
+  });
+
+  app.post("/api/webhooks/whatsapp", async (req, res) => {
+    try {
+      const body = req.body;
+      console.log("📩 WhatsApp Event:", JSON.stringify(body, null, 2));
+      
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const messages = value?.messages;
+
+      if (messages && messages.length > 0) {
+        const msg = messages[0];
+        const from = msg.from;
+        const text = msg.text?.body;
+
+        console.log(`[WHATSAPP] From ${from}: ${text}`);
+        
+        // AUTO-RESPONSE LOGIC (AI AGENT IN ENTERPRISE MODE)
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `Act as a helpful professional recruitment assistant for HireNest. A candidate/vendor messaged: "${text}". Reply in a natural, helpful way. Keep it under 50 words.`
+        });
+
+        // In production, you would call Meta Graph API here to send response
+        console.log(`[WHATSAPP] Suggested AI Reply: ${response.text}`);
+      }
+
+      res.status(200).send("EVENT_RECEIVED");
+    } catch (err) {
+      console.error("WhatsApp Webhook Error:", err);
+      res.status(500).send("INTERNAL_ERROR");
+    }
+  });
+
+  // 3. HEALTH CHECK
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", version: "1.0.0-secure" });
+    res.json({ 
+      status: "ok", 
+      version: "1.0.0-enterprise",
+      whatsapp_status: "listening",
+      neural_engine: "active"
+    });
   });
 
   // 3. VITE MIDDLEWARE
