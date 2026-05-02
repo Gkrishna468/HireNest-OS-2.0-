@@ -1,0 +1,11 @@
+{
+  "name": "Remix: HireNest Enterprise CRM",
+  "description": "Autonomous Recruitment Operating System with AI Agents, Marketplace broadcasts, and WhatsApp/Email automation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "recruitment",
+    "ai-agents",
+    "workflow-automation",
+    "marketplace"
+  ]
+}
