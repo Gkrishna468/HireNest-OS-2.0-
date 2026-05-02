@@ -1,18 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { GoogleGenAI } from "@google/genai";
-
-let aiClient: GoogleGenAI | null = null;
-
-function getAI() {
-  if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'undefined') {
-      throw new Error("GEMINI_API_KEY is not defined.");
-    }
-    aiClient = new GoogleGenAI({ apiKey });
-  }
-  return aiClient;
-}
+import { callAIQuietly } from '@/utils/ai';
 
 /**
  * Reply Agent: Detects responses and classifies intent using Gemini
@@ -54,12 +41,7 @@ export async function runReplyAgent() {
           Return ONLY the classification string.
         `;
 
-        const response = await getAI().models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: prompt
-        });
-
-        const intent = response.text?.trim() || "NEUTRAL";
+        const intent = await callAIQuietly(prompt);
 
         if (intent === 'INTERESTED') {
           await supabase.from('outreach_logs').update({

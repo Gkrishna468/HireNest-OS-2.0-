@@ -22,7 +22,7 @@ import {
   CircleDollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GoogleGenAI } from "@google/genai";
+import { callAIQuietly } from '@/utils/ai';
 import ReactMarkdown from 'react-markdown';
 
 const agents = [
@@ -57,12 +57,6 @@ export default function AgentChat() {
     setLoading(true);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey || apiKey === 'undefined') {
-        throw new Error('GEMINI_API_KEY is not defined. Please configure your Gemini API Key in Settings.');
-      }
-      const genAI = new GoogleGenAI({ apiKey });
-      
       const context = `
 Current System Data Context:
 - Jobs Open: ${jobs.length}
@@ -71,18 +65,19 @@ Current System Data Context:
 
 Agent Profile: ${selectedAgent.prompt}
 
-Special Capability: Lead Discovery
-You can suggest strategies for pulling recruiter leads from sources like LinkedIn, YouTube comments (searching for hire/looking for job keywords), and GitHub repositories based on the video strategies provided.
+Special Capability: Lead Discovery & Extraction
+You have access to strategic playbooks for sourcing recruiter leads:
+1. LinkedIn Pulse: Suggesting boolean search strings for specific niches.
+2. YouTube Intelligence: Analyzing comments on HR/Tech career videos for 'looking to hire' or 'searching for role' patterns.
+3. GitHub Sourcing: Identifying contributors in trending repositories related to open requisitions.
+4. Marketplace Arbitrage: Identifying potential client companies based on their open job patterns elsewhere.
 
 Please answer the user's request based on your role and the system data context provided.
 `;
 
-      const result = await genAI.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [context, ...messages.map(m => `${m.role}: ${m.content}`), `user: ${input}`]
-      });
-      
-      const text = result.text || "";
+      const prompt = `Conversation history:\n${messages.map(m => `${m.role}: ${m.content}`).join("\n")}\n\nUser: ${input}`;
+      const text = await callAIQuietly(prompt, { context });
+
 
       setMessages(prev => [...prev, { role: 'assistant', content: text, agent: selectedAgent.id, timestamp: new Date().toISOString() }]);
     } catch (err: any) {

@@ -1,20 +1,33 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { recordDeal } from "./financialService";
 import { calculateAdjustedBudget } from "./marketplaceService";
 
-let aiClient: GoogleGenAI | null = null;
+// SECURITY: Input Validation Schemas
+export const ResumeSchema = z.object({
+  text: z.string().min(10).max(50000),
+});
 
-function getAI() {
-  if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'undefined') {
-      throw new Error("GEMINI_API_KEY is not defined. Please set it in your environment variables.");
-    }
-    aiClient = new GoogleGenAI({ apiKey });
+export const MatchSchema = z.object({
+  jobId: z.string().uuid(),
+  candidateId: z.string().uuid(),
+});
+
+async function callAISecureProxy(prompt: string, context: any = {}) {
+  const response = await fetch("/api/ai/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, context }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "AI Proxy Error");
   }
-  return aiClient;
+
+  const data = await response.json();
+  return data.text;
 }
 
 /**
@@ -80,16 +93,9 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
   `;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    const cleanText = response.text || "{}";
-    return JSON.parse(cleanText);
+    const jsonString = await callAISecureProxy(prompt);
+    const cleanJson = jsonString.replace(/```json|```/g, "").trim();
+    return JSON.parse(cleanJson);
   } catch (error) {
     console.error("AI Parsing Error:", error);
     return {
@@ -131,16 +137,9 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
   `;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    const cleanText = response.text || "{}";
-    return JSON.parse(cleanText);
+    const jsonString = await callAISecureProxy(prompt);
+    const cleanJson = jsonString.replace(/```json|```/g, "").trim();
+    return JSON.parse(cleanJson);
   } catch (error) {
     console.error("AI Matching Error:", error);
     return { score: 0, reasoning: "Evaluation failed", gaps: [], recommendation: 'reject' };

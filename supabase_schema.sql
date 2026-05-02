@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS messages (
 -- 9. Agent Infrastructure (Updated)
 CREATE TABLE IF NOT EXISTS agent_tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
   type TEXT,
   payload JSONB,
   status TEXT DEFAULT 'pending',
@@ -116,9 +117,86 @@ CREATE TABLE IF NOT EXISTS agent_tasks (
 
 CREATE TABLE IF NOT EXISTS agent_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
   type TEXT,
   message TEXT,
   level TEXT DEFAULT 'info',
   metadata JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 10. Financials (The Deals / Revenue Layer)
+CREATE TABLE IF NOT EXISTS deals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID REFERENCES jobs(id),
+  candidate_id UUID REFERENCES candidates(id),
+  client_name TEXT,
+  job_title TEXT,
+  candidate_name TEXT,
+  revenue_amount NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'pipeline', -- pipeline, placed, lost
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS on all tables
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agreements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE candidates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collaborations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
+
+-- 11. Security Policies (The Fortress)
+-- Allow users to see their own profile
+CREATE POLICY "Users can view own profile" ON profiles
+  FOR SELECT USING (auth.uid() = id);
+
+-- Allow users to update their own profile (except role/company_id)
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+-- Company Data Isolation: The "Master Gate"
+-- Users can only see data belonging to their company
+CREATE POLICY "Company wide data access" ON companies
+  FOR SELECT USING (id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+
+CREATE POLICY "Agreement access" ON agreements
+  FOR SELECT USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+
+CREATE POLICY "Job access" ON jobs
+  FOR ALL USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+
+CREATE POLICY "Candidate access" ON candidates
+  FOR ALL USING (vendor_company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+
+CREATE POLICY "Collaboration access" ON collaborations
+  FOR ALL USING (
+    vendor_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()) OR
+    client_id IN (SELECT company_id FROM profiles WHERE id = auth.uid())
+  );
+
+CREATE POLICY "Message access" ON messages
+  FOR ALL USING (
+    sender_id = auth.uid() OR
+    conversation_id IN (
+      SELECT conv.id FROM conversations conv
+      JOIN collaborations col ON conv.collaboration_id = col.id
+      WHERE col.vendor_id IN (SELECT company_id FROM profiles WHERE id = auth.uid())
+      OR col.client_id IN (SELECT company_id FROM profiles WHERE id = auth.uid())
+    )
+  );
+
+CREATE POLICY "Agent task access" ON agent_tasks
+  FOR ALL USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+
+CREATE POLICY "Deal access" ON deals
+  FOR ALL USING (
+    job_id IN (SELECT id FROM jobs WHERE company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()))
+  );
+
