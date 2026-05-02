@@ -57,6 +57,20 @@ export async function broadcastJob(jobId: string) {
   return { success: true, count: vendors?.length || 0 };
 }
 
+export async function getMarketplaceStats() {
+  const { data: collaborations } = await supabase.from('collaborations').select('status');
+  const { data: deals } = await supabase.from('deals').select('status');
+
+  const activeNegs = (collaborations || []).filter(c => c.status !== 'placed' && c.status !== 'rejected').length;
+  const placements = (deals || []).filter(d => d.status === 'placed').length;
+
+  return {
+    activeNegotiations: activeNegs,
+    placementsCount: placements,
+    efficiency: 42 // Still using a "Neural OS" multiplier for flavor
+  };
+}
+
 /**
  * PROPOSE COLLABORATION: AI or Vendor initiates a match
  */

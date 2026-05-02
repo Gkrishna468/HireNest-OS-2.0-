@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   FileText, 
@@ -11,9 +11,23 @@ import {
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { cn } from '@/lib/utils';
+import { getMarketplaceStats } from '@/services/marketplaceService';
 
 export default function Marketplace() {
   const { clients, vendors, jobs } = useData();
+  const [stats, setStats] = useState({ activeNegotiations: 24, placementsCount: 3, efficiency: 40 });
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const liveStats = await getMarketplaceStats();
+        setStats(liveStats);
+      } catch (err) {
+        console.error("Failed to fetch live marketplace stats");
+      }
+    }
+    fetchStats();
+  }, [jobs]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -94,7 +108,7 @@ export default function Marketplace() {
                   <div>
                     <h4 className="font-black text-slate-900 tracking-tight">{job.title}</h4>
                     <div className="flex items-center gap-4 mt-1">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Broadcasted to 12 Vendors</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Broadcasted to {vendors.length} Vendors</span>
                       <div className="w-1 h-1 bg-slate-300 rounded-full" />
                       <span className="text-xs font-bold text-indigo-600 italic">Net Budget: ₹{(job.budget * 0.8 / 100000).toFixed(1)}L</span>
                     </div>
@@ -122,24 +136,13 @@ export default function Marketplace() {
               </div>
               <div>
                 <p className="text-xs font-black text-indigo-900 tracking-tight uppercase tracking-widest">Marketplace Collaboration Stats</p>
-                <p className="text-[11px] text-indigo-600 font-bold">24 Active Negotiations • 3 Placements this week • 40% Efficiency Increase</p>
+                <p className="text-[11px] text-indigo-600 font-bold">{stats.activeNegotiations} Active Negotiations • {stats.placementsCount} Placements this week • {stats.efficiency}% Efficiency Increase</p>
               </div>
             </div>
             <button className="text-xs font-black text-indigo-600 hover:underline underline-offset-4">View All Handshakes</button>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Briefcase({ className }: { className?: string }) {
-  return (
-    <div className={className}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
-        <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
-        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-      </svg>
     </div>
   );
 }

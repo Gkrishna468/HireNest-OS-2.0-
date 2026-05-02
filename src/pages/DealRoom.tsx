@@ -24,12 +24,21 @@ import {
   Plus,
   Send,
   XCircle,
-  FileSignature
+  FileSignature,
+  AreaChart as AreaChartIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { sendAgreement } from '@/services/legalService';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+const forecastData = [
+  { month: 'Apr', revenue: 380000, projected: 380000 },
+  { month: 'May', revenue: 420000, projected: 450000 },
+  { month: 'Jun', revenue: 0, projected: 780000 },
+  { month: 'Jul', revenue: 0, projected: 1050000 },
+];
 
 export default function DealRoom() {
   const { deals } = useData();
@@ -181,6 +190,73 @@ export default function DealRoom() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+          {/* Revenue Forecast Chart */}
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-md">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="font-black text-xl text-slate-900 tracking-tight flex items-center gap-2">
+                  <AreaChartIcon className="w-5 h-5 text-indigo-600" />
+                  Neural Revenue Forecast
+                </h3>
+                <p className="text-xs text-slate-400 font-medium mt-1">Projected growth based on current pipeline probability.</p>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Projected</span>
+                </div>
+                <div className="flex items-center gap-1.5 ml-4">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-200" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actual</span>
+                </div>
+              </div>
+            </div>
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={forecastData}>
+                  <defs>
+                    <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="month" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                    dy={10}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                    tickFormatter={(value) => `₹${value/100000}L`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="projected" 
+                    stroke="#4f46e5" 
+                    strokeWidth={4}
+                    fillOpacity={1} 
+                    fill="url(#colorProjected)" 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#e2e8f0" 
+                    strokeWidth={2}
+                    fill="transparent" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           <div className="bg-white rounded-[3rem] border border-slate-100 shadow-md overflow-hidden flex flex-col">
             <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/10">
               <div>

@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { Sidebar } from './components/Sidebar';
 import NotificationHub from './components/NotificationHub';
+import OnboardingTour from './components/OnboardingTour';
 import { Toaster } from 'sonner';
 
 // Lazy load pages eventually, but for now placeholders or direct imports
@@ -40,6 +41,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   
   return (
     <div className="flex min-h-screen bg-slate-50 relative">
+      <OnboardingTour />
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-8 pt-6">
         <div className="max-w-7xl mx-auto">

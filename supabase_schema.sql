@@ -243,3 +243,20 @@ CREATE POLICY "Deal access" ON deals
     job_id IN (SELECT id FROM jobs WHERE company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()))
   );
 
+-- 14. Discovery & Intent Leads
+CREATE TABLE IF NOT EXISTS leads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_name TEXT NOT NULL,
+  signal_type TEXT NOT NULL, -- 'hiring_surge', 'content_engagement', 'tech_shift'
+  intent_score INTEGER DEFAULT 0,
+  decision_makers JSONB DEFAULT '[]',
+  tool_stack JSONB DEFAULT '[]',
+  recent_events TEXT[],
+  status TEXT DEFAULT 'warm', -- 'warm', 'approached', 'deal_converted'
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Leads access" ON leads FOR ALL USING (true);
+

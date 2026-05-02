@@ -18,7 +18,10 @@ import {
   Upload,
   Briefcase,
   ChevronRight,
-  Network
+  Network,
+  Radar,
+  Activity,
+  UserPlus
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -28,6 +31,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { proposeCollaboration } from '@/services/marketplaceService';
 import { syncGmailResumes } from '@/services/gmailService';
+import { discoverIntentLeads, getWarmLeads, DiscoveryLead } from '@/services/discoveryService';
 
 interface OutreachLog {
   id: string;
@@ -42,11 +46,37 @@ interface OutreachLog {
 }
 
 export default function IntelligenceCenter() {
-  const { logs } = useData();
+  const { logs, jobs, candidates } = useData();
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
   const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp'>('all');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [leads, setLeads] = useState<DiscoveryLead[]>([]);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+
+  useEffect(() => {
+    fetchLeads();
+  }, []);
+
+  async function fetchLeads() {
+    const data = await getWarmLeads();
+    setLeads(data as any);
+  }
+
+  async function handleDiscovery() {
+    setIsDiscovering(true);
+    toast.info('Igniting Neural Scrapers...', { icon: <Radar className="animate-spin" /> });
+    try {
+      await discoverIntentLeads();
+      toast.success('High-Intent signals parsed & analyzed.');
+      fetchLeads();
+      fetchOutreachLogs();
+    } catch (err) {
+      toast.error('Discovery pulse failed');
+    } finally {
+      setIsDiscovering(false);
+    }
+  }
 
   // ... rest of the code
   async function handleGmailSync() {
@@ -88,18 +118,9 @@ export default function IntelligenceCenter() {
     }
   }
 
-  // Mock auto-generation of outreach activity for visualization
+  // Fetch real activity logs on mount
   useEffect(() => {
     fetchOutreachLogs();
-    
-    // Simulate real-time activity for the "Magic" feel
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        addRandomActivity();
-      }
-    }, 10000);
-
-    return () => clearInterval(interval);
   }, []);
 
   async function fetchOutreachLogs() {
@@ -207,7 +228,7 @@ export default function IntelligenceCenter() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             Neural Command <span className="text-indigo-600">OS</span>
           </h1>
-          <p className="text-slate-500 mt-1 font-medium italic">"Welcome, Founder. Currently managing 14 open requisitions. The pipeline is healthy and synchronized."</p>
+          <p className="text-slate-500 mt-1 font-medium italic">"Welcome, Founder. Currently managing {jobs.length} open requisitions. The pipeline is healthy and synchronized."</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -285,58 +306,74 @@ export default function IntelligenceCenter() {
 
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-slate-900 p-8 rounded-[3.5rem] text-white overflow-hidden relative shadow-2xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/30 to-transparent pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-8">
                 <div>
-                  <h3 className="text-2xl font-black tracking-tight mb-2">Marketplace Collaboration Stats</h3>
-                  <div className="flex gap-6 mt-4">
-                    <div className="text-center">
-                      <div className="text-3xl font-black">24</div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mt-1">Active Negotiations</div>
-                    </div>
-                    <div className="w-px h-10 bg-slate-800" />
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-emerald-400">3</div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mt-1">Placements this week</div>
-                    </div>
-                    <div className="w-px h-10 bg-slate-800" />
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-indigo-400">40%</div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mt-1">Efficiency Increase</div>
-                    </div>
-                  </div>
+                  <h3 className="text-2xl font-black tracking-tight mb-2 flex items-center gap-3">
+                    Neural Discovery <span className="text-indigo-400">Feed</span>
+                    {isDiscovering && <Radar className="w-5 h-5 text-indigo-400 animate-spin" />}
+                  </h3>
+                  <p className="text-slate-400 text-sm font-medium italic">High-intent signals detected from ecosystem scrapers.</p>
                 </div>
                 <button 
-                  onClick={() => window.location.hash = '#/collaboration-hub'}
-                  className="px-6 py-3 bg-white/10 hover:bg-white/20 transition-all rounded-2xl text-xs font-black uppercase tracking-widest border border-white/10 flex items-center gap-2"
+                  onClick={handleDiscovery}
+                  disabled={isDiscovering}
+                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 transition-all rounded-2xl text-xs font-black uppercase tracking-widest border border-indigo-400 flex items-center gap-2 shadow-lg shadow-indigo-600/20"
                 >
-                  View All Handshakes
-                  <ChevronRight className="w-4 h-4" />
+                  <Radar className={cn("w-4 h-4", isDiscovering && "animate-spin")} />
+                  Pulse Discovery
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { title: 'Neural Matching', status: '87% Acc', count: 142, icon: BrainCircuit, color: 'text-indigo-400' },
-                  { title: 'Vendor Sync', status: 'Healthy', count: 18, icon: Network, color: 'text-emerald-400' },
-                  { title: 'Deal Pipeline', status: '₹84.2L', count: 12, icon: Zap, color: 'text-yellow-400' }
-                ].map((bit, idx) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {leads.length > 0 ? leads.slice(0, 4).map((lead) => (
                   <div 
-                    key={idx} 
-                    onClick={() => window.location.hash = '#/collaboration-hub'}
-                    className="bg-white/5 border border-white/5 p-5 rounded-3xl group hover:bg-white/10 transition-all cursor-pointer"
+                    key={lead.id} 
+                    className="bg-white/5 border border-white/10 p-6 rounded-[2rem] group hover:bg-white/10 transition-all cursor-pointer relative overflow-hidden"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className={cn("w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center", bit.color)}>
-                        <bit.icon className="w-5 h-5" />
-                      </div>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">{bit.status}</span>
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <Zap className="w-12 h-12 text-yellow-400" />
                     </div>
-                    <div className="text-2xl font-black mb-1">{bit.count}</div>
-                    <div className="text-xs font-medium text-slate-400 tracking-tight">{bit.title}</div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-lg font-black">
+                          {lead.company_name[0]}
+                        </div>
+                        <div>
+                          <h4 className="font-black text-white tracking-tight">{lead.company_name}</h4>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{lead.signal_type.replace('_', ' ')}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-black text-emerald-400">{lead.intent_score}%</div>
+                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Intent</div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {lead.tool_stack.slice(0, 3).map(tool => (
+                          <span key={tool} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] font-bold text-slate-400 uppercase">
+                            {tool}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                        <UserPlus className="w-3 h-3 text-indigo-400" />
+                        {lead.decision_makers.length} Key Decision Makers Identified
+                      </div>
+                    </div>
+
+                    <button className="w-full mt-4 py-2 bg-white/5 hover:bg-white/20 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all">
+                      Initiate Neural Outreach
+                    </button>
                   </div>
-                ))}
+                )) : (
+                  <div className="col-span-2 py-12 text-center text-slate-500 font-black uppercase tracking-widest text-xs italic">
+                    Pulse the scrapers to find warm intent signals...
+                  </div>
+                )}
               </div>
             </div>
           </div>

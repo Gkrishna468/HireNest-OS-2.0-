@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { 
   Plus, 
@@ -17,16 +17,19 @@ import {
   Star,
   Award,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  TrendingUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { safeArray, safeString } from '@/utils/safe';
 import { cn } from '@/lib/utils';
+import { getAllVendorRatings, VendorPerformance } from '@/services/vendorService';
 
 export default function Vendors() {
   const { vendors, loading, addVendor } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [ratings, setRatings] = useState<Record<string, VendorPerformance>>({});
   const [formData, setForm] = useState({
     name: '',
     company: '',
@@ -34,6 +37,14 @@ export default function Vendors() {
     isRecruiter: false,
     recruiterCompany: ''
   });
+
+  useEffect(() => {
+    async function loadRatings() {
+      const data = await getAllVendorRatings();
+      setRatings(data);
+    }
+    loadRatings();
+  }, [vendors]);
 
   const filteredVendors = safeArray(vendors).filter(v => 
     safeString(v.name).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -99,21 +110,31 @@ export default function Vendors() {
                 <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
                   <Truck className="w-6 h-6" />
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className={cn(
-                    "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest border",
-                    vendor.type === 'recruiter' ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-blue-100 text-blue-700 border-blue-200"
-                  )}>
-                    {vendor.type}
-                  </span>
-                  <div className="flex text-yellow-400 scale-75 origin-right">
-                    <Star className="w-4 h-4 fill-current" />
-                    <Star className="w-4 h-4 fill-current" />
-                    <Star className="w-4 h-4 fill-current" />
-                    <Star className="w-4 h-4 fill-current" />
-                    <Star className="w-4 h-4 opacity-30" />
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={cn(
+                      "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest border",
+                      vendor.type === 'recruiter' ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-blue-100 text-blue-700 border-blue-200"
+                    )}>
+                      {vendor.type}
+                    </span>
+                    <div className="flex items-center gap-2">
+                       <div className="flex text-yellow-400 scale-90">
+                        {[1, 2, 3, 4, 5].map((s) => {
+                          const rating = ratings[vendor.id]?.rating || 3.5;
+                          return (
+                            <Star 
+                              key={s} 
+                              className={cn(
+                                "w-4 h-4",
+                                s <= Math.round(rating) ? "fill-current" : "opacity-20"
+                              )} 
+                            />
+                          );
+                        })}
+                      </div>
+                      <span className="text-[10px] font-black text-slate-400">{(ratings[vendor.id]?.rating || 3.5).toFixed(1)}</span>
+                    </div>
                   </div>
-                </div>
               </div>
               
               <div>
@@ -127,6 +148,20 @@ export default function Vendors() {
                   {safeArray(vendor.specialization).slice(0, 3).map(s => (
                     <span key={s} className="px-1.5 py-0.5 bg-slate-50 text-slate-400 text-[9px] font-bold rounded uppercase border border-slate-100">{s}</span>
                   ))}
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Placements</span>
+                    <span className="text-sm font-black text-slate-900">{ratings[vendor.id]?.totalPlacements || 0}</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Success Rate</span>
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3 text-emerald-500" />
+                      <span className="text-sm font-black text-slate-900">{Math.round(ratings[vendor.id]?.successRate || 0)}%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

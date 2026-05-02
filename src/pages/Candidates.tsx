@@ -23,17 +23,52 @@ import {
   CheckCircle2,
   XCircle,
   Building2,
-  Users
+  Users,
+  BrainCircuit,
+  Lock,
+  Send,
+  Loader2,
+  Target
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { safeArray, safeString, safeNumber, safeDate } from '@/utils/safe';
+import { generateCandidateBriefing, maskCandidateData, BriefingResult } from '@/services/briefingService';
 
 export default function Candidates() {
   const { candidates, loading, clients, addCandidate, updateCandidateStatus } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [briefing, setBriefing] = useState<BriefingResult | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isMasking, setIsMasking] = useState(false);
+
+  async function handleGenerateBriefing() {
+    if (!selectedCandidate) return;
+    setIsGenerating(true);
+    try {
+      const result = await generateCandidateBriefing(selectedCandidate);
+      setBriefing(result);
+      toast.success('Neural Briefing Generated.');
+    } catch (err) {
+      toast.error('Briefing failed.');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  function handleMaskAndShare() {
+    setIsMasking(true);
+    toast.info('Neural PII Mask Active...', { icon: <Lock className="animate-pulse" /> });
+    setTimeout(() => {
+      const masked = maskCandidateData(selectedCandidate);
+      console.log("Sharing masked profile:", masked);
+      toast.success('Anonymized Profile ready for sharing.');
+      setIsMasking(false);
+    }, 1500);
+  }
 
   const filteredCandidates = safeArray(candidates).filter(c => 
     safeString(c.name).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -119,10 +154,64 @@ export default function Candidates() {
 
               <div className="space-y-8">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 mb-4 tracking-tight border-b border-slate-100 pb-2">Intelligence Summary</h3>
-                  <p className="text-sm text-slate-600 leading-relaxed italic">
-                    "This candidate shows high potential in {selectedCandidate.skills?.slice(0,2).join(' & ')} with a strong neural match for your recent Java/Oracle mandates."
-                  </p>
+                  <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Intelligence Briefing</h3>
+                    <button 
+                      onClick={handleGenerateBriefing}
+                      disabled={isGenerating}
+                      className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-500 transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+                    >
+                      {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <BrainCircuit className="w-3 h-3" />}
+                      {briefing ? 'Re-Gen Briefing' : 'Gen AI Briefing'}
+                    </button>
+                  </div>
+
+                  {briefing ? (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }} 
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-4"
+                    >
+                      <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                        <p className="text-sm text-slate-700 leading-relaxed font-medium italic">
+                          "{briefing.summary}"
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {briefing.strengths.map((s, i) => (
+                          <div key={i} className="p-3 bg-white border border-slate-100 shadow-sm rounded-xl flex items-center gap-2">
+                            <Target className="w-3 h-3 text-emerald-500" />
+                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="p-4 bg-slate-900 rounded-2xl text-white">
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Zap className="w-3 h-3" />
+                          Recommended Pitch
+                        </p>
+                        <p className="text-xs leading-relaxed opacity-90">{briefing.client_pitch}</p>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <p className="text-sm text-slate-600 leading-relaxed italic">
+                      "Generate an AI briefing to see high-intent analysis for this candidate."
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-4">
+                  <button 
+                    onClick={handleMaskAndShare}
+                    className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <Lock className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                    Secure Mask & Share
+                  </button>
+                  <button className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10">
+                    <Send className="w-4 h-4" />
+                    Move to Next Stage
+                  </button>
                 </div>
 
                 <div>
