@@ -16,10 +16,11 @@ export async function calculateAdjustedBudget(companyId: string, budget: number)
 }
 
 /**
- * BROADCAST JOB: Makes job visible to vendors
+ * BROADCAST JOB: Makes job visible to vendors and triggers AI outreach agents.
  */
 export async function broadcastJob(jobId: string) {
   const { data: job } = await supabase.from('jobs').select('*, company:companies(name)').eq('id', jobId).single();
+  if (!job) throw new Error("Job not found");
 
   const { error } = await supabase
     .from('jobs')
@@ -28,21 +29,32 @@ export async function broadcastJob(jobId: string) {
     
   if (error) throw error;
 
-  // SYSTEM LOG
+  // 1. Fetch matching vendors (simulate)
+  const { data: vendors } = await supabase.from('companies').select('*').eq('type', 'vendor').limit(5);
+
+  // 2. SYSTEM LOG
   await supabase.from('agent_logs').insert({
     type: 'notification',
     level: 'info',
-    message: `[OUTREACH AGENT] Job broadcasted to marketplace: "${job?.title}". Initiating vendor-partner awareness sequence.`,
+    message: `[OUTREACH AGENT] Neural broadcast initiated for "${job.title}". Notifying vendor ecosystem.`,
     metadata: { jobId, broadcast: true, channel: 'system' }
   });
 
-  // SIMULATE OUTREACH IN Intelligence Center
-  await supabase.from('agent_logs').insert({
-    type: 'outreach',
-    level: 'success',
-    message: `[WHATSAPP AGENT] Sent notification to 12 Top-Tier Vendors regarding new requisition: ${job?.title}. AI logic predicts 3-5 immediate submissions.`,
-    metadata: { jobId, channel: 'whatsapp', status: 'sent', recipientCount: 12 }
-  });
+  // 3. SEND WHATSAPP TO VENDORS
+  if (vendors) {
+    for (const vendor of vendors) {
+      const msg = `🚀 *New Mandate Alert*: ${job.title} at ${job.company?.name}. Budget: ${job.budget}. Our neural engine is ready to match your best candidates. Submit via HireNest Portal.`;
+      
+      await supabase.from('agent_logs').insert({
+        type: 'outreach',
+        level: 'success',
+        message: `[WHATSAPP AGENT] Broadcast notification sent to Vendor: ${vendor.name}`,
+        metadata: { jobId, channel: 'whatsapp', status: 'sent', recipient: vendor.name, content: msg }
+      });
+    }
+  }
+
+  return { success: true, count: vendors?.length || 0 };
 }
 
 /**

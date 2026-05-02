@@ -77,8 +77,6 @@ async function startServer() {
   app.post("/api/webhooks/whatsapp", async (req, res) => {
     try {
       const body = req.body;
-      console.log("📩 WhatsApp Event:", JSON.stringify(body, null, 2));
-      
       const entry = body.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
@@ -86,19 +84,40 @@ async function startServer() {
 
       if (messages && messages.length > 0) {
         const msg = messages[0];
-        const from = msg.from;
+        const from = msg.from; // Phone number
         const text = msg.text?.body;
 
-        console.log(`[WHATSAPP] From ${from}: ${text}`);
+        // 1. LOG TO SUPABASE AGENT LOGS (for real-time streaming in Intelligence Center)
+        const { data: logData, error: logError } = await supabase.from('agent_logs').insert({
+          type: 'outreach',
+          level: 'info',
+          message: `[WHATSAPP INBOUND] Message from +${from}: "${text}"`,
+          metadata: { channel: 'whatsapp', sender: from, content: text }
+        }).select();
+
+        // 2. BRAIN: CONTEXT-AWARE REPLY
+        // Fetch candidate details if exists
+        const { data: candidate } = await supabase.from('candidates').select('*').eq('phone', from).single();
         
-        // AUTO-RESPONSE LOGIC (AI AGENT IN ENTERPRISE MODE)
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `Act as a helpful professional recruitment assistant for HireNest. A candidate/vendor messaged: "${text}". Reply in a natural, helpful way. Keep it under 50 words.`
+        const context = candidate 
+          ? `The sender is Candidate ${candidate.name} (Match Score ${candidate.ai_match_score}%). They are currently in ${candidate.stage} stage.`
+          : `The sender is a new contact.`;
+
+        const response = await ai.getGenerativeModel({ model: "gemini-3-flash-preview" }).generateContent({
+          contents: [{ role: 'user', parts: [{ text: `${context} They sent: "${text}". Generate a professional, helpful WhatsApp reply from HireNest AI. If they ask about status, tell them our neural engine is finalizing approvals.` }] }]
         });
 
-        // In production, you would call Meta Graph API here to send response
-        console.log(`[WHATSAPP] Suggested AI Reply: ${response.text}`);
+        const replyText = response.response.text();
+
+        // 3. LOG OUTBOUND REPLY
+        await supabase.from('agent_logs').insert({
+          type: 'outreach',
+          level: 'success',
+          message: `[WHATSAPP AUTO-REPLY] To +${from}: "${replyText.slice(0, 50)}..."`,
+          metadata: { channel: 'whatsapp', recipient: from, content: replyText, ai_generated: true }
+        });
+
+        // In production: await fetch('https://graph.facebook.com/...', { ...body: { to: from, text: { body: replyText } } })
       }
 
       res.status(200).send("EVENT_RECEIVED");

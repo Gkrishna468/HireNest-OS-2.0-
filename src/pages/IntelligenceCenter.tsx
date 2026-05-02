@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { proposeCollaboration } from '@/services/marketplaceService';
+import { syncGmailResumes } from '@/services/gmailService';
 
 interface OutreachLog {
   id: string;
@@ -45,6 +46,47 @@ export default function IntelligenceCenter() {
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
   const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp'>('all');
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  // ... rest of the code
+  async function handleGmailSync() {
+    setSyncing(true);
+    toast.info('Accessing Neural Gmail Node...', { icon: <Mail className="animate-bounce" /> });
+    try {
+      const result = await syncGmailResumes();
+      toast.success(result.message);
+      await fetchOutreachLogs();
+    } catch (err: any) {
+      toast.error(err.message || "Gmail sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function simulateWhatsAppInbound() {
+    toast.info('Simulating Inbound WhatsApp...', { icon: <MessageSquare /> });
+    try {
+      await fetch('/api/webhooks/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entry: [{
+            changes: [{
+              value: {
+                messages: [{
+                  from: "919000000000",
+                  text: { body: "Hey, I saw the Senior AI Engineer job. What is the status of my application?" }
+                }]
+              }
+            }]
+          }]
+        })
+      });
+      setTimeout(() => fetchOutreachLogs(), 3000);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   // Mock auto-generation of outreach activity for visualization
   useEffect(() => {
@@ -223,14 +265,14 @@ export default function IntelligenceCenter() {
             <h3 className="font-black text-lg text-slate-900 mb-4 tracking-tight">Ecosystem Quick Links</h3>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Add Job', color: 'bg-blue-50 text-blue-600', icon: Briefcase, link: '#/jobs' },
-                { label: 'Upload CV', color: 'bg-indigo-50 text-indigo-600', icon: Upload, link: '#/resumes' },
-                { label: 'Sync Emails', color: 'bg-purple-50 text-purple-600', icon: Mail, link: '#/settings' },
-                { label: 'Run Audit', color: 'bg-emerald-50 text-emerald-600', icon: ShieldCheck, link: '#' }
+                { label: 'Add Job', color: 'bg-blue-50 text-blue-600', icon: Briefcase, onClick: () => window.location.hash = '#/jobs' },
+                { label: 'Upload CV', color: 'bg-indigo-50 text-indigo-600', icon: Upload, onClick: () => window.location.hash = '#/resumes' },
+                { label: 'Sync Emails', color: 'bg-purple-50 text-purple-600', icon: Mail, onClick: handleGmailSync },
+                { label: 'Test WhatsApp', color: 'bg-emerald-50 text-emerald-600', icon: MessageSquare, onClick: simulateWhatsAppInbound }
               ].map(link => (
                 <button 
                   key={link.label}
-                  onClick={() => link.link !== '#' && (window.location.hash = link.link)}
+                  onClick={link.onClick}
                   className={cn("p-4 rounded-3xl flex flex-col items-center gap-2 hover:scale-105 transition-transform border border-transparent hover:border-slate-100", link.color)}
                 >
                   <link.icon className="w-5 h-5" />
