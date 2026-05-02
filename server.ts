@@ -2,9 +2,15 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+// Supabase Init for server-side logging
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function startServer() {
   const app = express();
@@ -103,11 +109,12 @@ async function startServer() {
           ? `The sender is Candidate ${candidate.name} (Match Score ${candidate.ai_match_score}%). They are currently in ${candidate.stage} stage.`
           : `The sender is a new contact.`;
 
-        const response = await ai.getGenerativeModel({ model: "gemini-3-flash-preview" }).generateContent({
-          contents: [{ role: 'user', parts: [{ text: `${context} They sent: "${text}". Generate a professional, helpful WhatsApp reply from HireNest AI. If they ask about status, tell them our neural engine is finalizing approvals.` }] }]
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `${context} They sent: "${text}". Generate a professional, helpful WhatsApp reply from HireNest AI. If they ask about status, tell them our neural engine is finalizing approvals.`
         });
 
-        const replyText = response.response.text();
+        const replyText = response.text;
 
         // 3. LOG OUTBOUND REPLY
         await supabase.from('agent_logs').insert({

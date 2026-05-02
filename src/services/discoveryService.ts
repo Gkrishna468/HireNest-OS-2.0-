@@ -28,10 +28,11 @@ export async function discoverIntentLeads() {
   let foundCount = 0;
 
   for (const signal of simulatedSignals) {
-    // 2. NEURAL FILTERING (The "Claude" step from your image)
+    // 2. NEURAL FILTERING (The "Claude" step)
     // Deep research into micro decision makers, tool stacks, and recent events.
-    const researchModel = ai.getGenerativeModel({ model: "gemini-3-flash-preview" });
-    const extraction = await researchModel.generateContent(`
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `
       Act as a high-tier executive researcher. Research "${signal.company}" based on signal: "${signal.description}".
       
       Extract:
@@ -46,10 +47,11 @@ export async function discoverIntentLeads() {
         "recent_events": ["string"],
         "intent_score": number (0-100)
       }
-    `);
+    `});
 
     try {
-      const data = JSON.parse(extraction.response.text().replace(/```json|```/g, ''));
+      const dataText = response.text?.replace(/```json|```/g, '') || '{}';
+      const data = JSON.parse(dataText);
 
       // 3. STORE IN NEURAL OS
       const { error } = await supabase.from('leads').insert({

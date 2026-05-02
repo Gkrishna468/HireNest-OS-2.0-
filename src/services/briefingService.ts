@@ -13,8 +13,6 @@ export interface BriefingResult {
  * Compiles 100+ data points into a high-conversion client briefing.
  */
 export async function generateCandidateBriefing(candidate: any): Promise<BriefingResult> {
-  const model = ai.getGenerativeModel({ model: "gemini-3-flash-preview" });
-  
   const prompt = `
     Act as a high-tier executive headhunter. Generate a client-facing briefing for the following candidate.
     Candidate: ${candidate.name}
@@ -31,8 +29,11 @@ export async function generateCandidateBriefing(candidate: any): Promise<Briefin
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json|```/g, '');
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt
+    });
+    const text = response.text?.replace(/```json|```/g, '') || '{}';
     return JSON.parse(text);
   } catch (error) {
     console.error("Briefing failed", error);

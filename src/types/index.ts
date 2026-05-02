@@ -31,6 +31,7 @@ export interface User {
   avatar?: string;
   phone?: string;
   status: 'active' | 'inactive';
+  isVerified?: boolean;
 }
 
 export interface Client {

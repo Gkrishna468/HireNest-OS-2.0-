@@ -26,6 +26,7 @@ import {
   Users,
   BrainCircuit,
   Lock,
+  Network,
   Send,
   Loader2,
   Target

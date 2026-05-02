@@ -7,7 +7,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Globe,
-  Plus
+  Plus,
+  Briefcase
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { cn } from '@/lib/utils';

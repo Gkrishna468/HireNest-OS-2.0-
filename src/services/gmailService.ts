@@ -49,12 +49,14 @@ export async function syncGmailResumes() {
         const name = nameMatch ? nameMatch[0] : "New Applicant";
         
         // 2. USE GEMINI TO PARSE (In real usage, we'd send the PDF text)
-        const extraction = await ai.getGenerativeModel({ model: "gemini-3-flash-preview" }).generateContent(
-          `Extract details from this email snippet: "${email.snippet}". 
-           Output JSON: { "name": "string", "skills": [], "experience": number, "summary": "string" }`
-        );
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `Extract details from this email snippet: "${email.snippet}". 
+            Output JSON: { "name": "string", "skills": [], "experience": number, "summary": "string" }`
+        });
         
-        const candidateData = JSON.parse(extraction.response.text().replace(/```json|```/g, ''));
+        const dataText = response.text?.replace(/```json|```/g, '') || '{}';
+        const candidateData = JSON.parse(dataText);
 
         // 3. PUSH TO SUPABASE
         const { error } = await supabase.from('candidates').insert({

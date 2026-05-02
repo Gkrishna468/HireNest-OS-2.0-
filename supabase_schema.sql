@@ -152,6 +152,7 @@ CREATE TABLE IF NOT EXISTS deals (
   job_title TEXT,
   candidate_name TEXT,
   vendor_name TEXT,
+  vendor_id UUID REFERENCES companies(id),
   revenue_amount NUMERIC DEFAULT 0,
   payout_amount NUMERIC DEFAULT 0,
   status TEXT DEFAULT 'pipeline', -- pipeline, placed, lost

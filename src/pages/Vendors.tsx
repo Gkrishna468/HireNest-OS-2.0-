@@ -46,6 +46,10 @@ export default function Vendors() {
     loadRatings();
   }, [vendors]);
 
+  const averageRating = Object.values(ratings).length > 0 
+    ? Object.values(ratings).reduce((acc, curr) => acc + curr.rating, 0) / Object.values(ratings).length 
+    : 3.5;
+
   const filteredVendors = safeArray(vendors).filter(v => 
     safeString(v.name).toLowerCase().includes(searchTerm.toLowerCase()) ||
     safeString(v.company).toLowerCase().includes(searchTerm.toLowerCase())
@@ -73,8 +77,14 @@ export default function Vendors() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Suppliers & Recruitment Partners</h1>
-          <p className="text-slate-500 mt-1">Orchestrate your vendor ecosystem and manage delivery partners.</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Vendor <span className="text-orange-600">Ecosystem</span></h1>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-slate-500 font-medium italic">"Managing high-velocity partnerships and neural quality scores."</p>
+            <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+              <Star className="w-3 h-3 text-amber-500 fill-current" />
+              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Avg Quality: {averageRating.toFixed(1)}</span>
+            </div>
+          </div>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
