@@ -6,25 +6,36 @@ export interface DashboardFinancials {
   costPerHire: number;
   bestPerformingClient: string;
   roi: number;
+  netMargin: number;
+  totalPayouts: number;
 }
 
 /**
- * CFO Agent Logic: Real-time financial calculations
+ * CFO Agent Logic: Real-time financial calculations with Tax & Payout logic
  */
 export async function getFinancialInsights(): Promise<DashboardFinancials> {
   const { data: deals } = await supabase
     .from('deals')
-    .select('revenue_amount, status, client_name');
+    .select('revenue_amount, payout_amount, status, client_name');
 
-  if (!deals) return { totalRevenue: 0, projectedRevenue: 0, costPerHire: 0, bestPerformingClient: 'N/A', roi: 0 };
+  if (!deals) return { totalRevenue: 0, projectedRevenue: 0, costPerHire: 0, bestPerformingClient: 'N/A', roi: 0, netMargin: 0, totalPayouts: 0 };
 
-  const total = deals
-    .filter(d => d.status === 'placed')
+  const activeDeals = deals.filter(d => d.status === 'placed' || d.status === 'offered');
+  
+  const total = activeDeals
     .reduce((acc, d) => acc + (Number(d.revenue_amount) || 0), 0);
 
+  const totalPayouts = activeDeals
+    .reduce((acc, d) => acc + (Number(d.payout_amount) || 0), 0);
+
+  // Projected revenue from pipeline (weighted)
   const projected = deals
     .filter(d => d.status === 'pipeline')
-    .reduce((acc, d) => acc + (Number(d.revenue_amount) || 0) * 0.15, 0); // 15% probability of closure
+    .reduce((acc, d) => acc + (Number(d.revenue_amount) || 0) * 0.20, 0); // 20% closure probability
+
+  // Net Margin calculation (Revenue - Payout - 18% Est Tax)
+  const estTax = total * 0.18;
+  const netMargin = total > 0 ? ((total - totalPayouts - estTax) / total) * 100 : 0;
 
   // Group by client
   const clientPerformance: Record<string, number> = {};
@@ -40,9 +51,11 @@ export async function getFinancialInsights(): Promise<DashboardFinancials> {
   return {
     totalRevenue: total,
     projectedRevenue: total + projected,
-    costPerHire: total > 0 ? (total * 0.12) / (deals.filter(d => d.status === 'placed').length || 1) : 0, // Mock overhead
+    totalPayouts: totalPayouts,
+    costPerHire: total > 0 ? (totalPayouts / (deals.filter(d => d.status === 'placed').length || 1)) : 0,
     bestPerformingClient: topClient,
-    roi: 420 // AI Ecosystem ROI multiplier
+    roi: 420,
+    netMargin: Math.round(netMargin)
   };
 }
 
