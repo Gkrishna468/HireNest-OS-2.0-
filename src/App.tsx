@@ -8,6 +8,7 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { Sidebar } from './components/Sidebar';
+import NotificationHub from './components/NotificationHub';
 import { Toaster } from 'sonner';
 
 // Lazy load pages eventually, but for now placeholders or direct imports
@@ -38,10 +39,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!user) return <Navigate to="/login" />;
   
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-slate-50 relative">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto p-8 pt-6">
         <div className="max-w-7xl mx-auto">
+          <div className="flex justify-end mb-6">
+            <NotificationHub />
+          </div>
           {children}
         </div>
       </main>

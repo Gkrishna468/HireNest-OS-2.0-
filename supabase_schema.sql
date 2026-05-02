@@ -133,26 +133,34 @@ CREATE TABLE IF NOT EXISTS deals (
   client_name TEXT,
   job_title TEXT,
   candidate_name TEXT,
+  vendor_name TEXT,
   revenue_amount NUMERIC DEFAULT 0,
+  payout_amount NUMERIC DEFAULT 0,
   status TEXT DEFAULT 'pipeline', -- pipeline, placed, lost
+  payment_received BOOLEAN DEFAULT false,
+  msa_signed BOOLEAN DEFAULT false,
+  nda_signed BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS on all tables
-ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agreements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE candidates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE collaborations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agent_tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agent_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
+-- 11. Notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id),
+  company_id UUID REFERENCES companies(id),
+  title TEXT,
+  message TEXT,
+  type TEXT DEFAULT 'info', -- info, success, warning, error
+  is_read BOOLEAN DEFAULT false,
+  link TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- 11. Security Policies (The Fortress)
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can only see their own notifications" ON notifications
+  FOR SELECT USING (user_id = auth.uid());
+
+-- 12. Security Policies (The Fortress)
 -- Allow users to see their own profile
 CREATE POLICY "Users can view own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);

@@ -116,22 +116,30 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
  */
 export async function scoreCandidateForJob(job: any, candidate: any): Promise<MatchResult> {
   const prompt = `
-    Act as an expert technical recruiter. Score the candidate against the job description.
+    Act as a Senior Strategic Recruitment Director. Perform a deep neural match between the job requirement and the candidate profile.
     
-    JOB: ${job.title}
-    SKILLS REQUIRED: ${job.skills?.join(", ")}
-    DESCRIPTION: ${job.description}
+    JOB REQUISITION:
+    - Title: ${job.title}
+    - Critical Skills: ${job.skills?.join(", ")}
+    - Core Responsibilities: ${job.description}
     
-    CANDIDATE: ${candidate.name}
-    CURRENT ROLE: ${candidate.currentTitle || candidate.current_title}
-    CANDIDATE SKILLS: ${candidate.skills?.join(", ")}
-    CANDIDATE SUMMARY: ${candidate.summary || candidate.experience}
+    CANDIDATE PROFILE:
+    - Name: ${candidate.name}
+    - Current/Recent Role: ${candidate.currentTitle || candidate.current_title}
+    - Declared Skills: ${candidate.skills?.join(", ")}
+    - Career Summary: ${candidate.summary || candidate.experience}
     
-    Return ONLY a JSON object:
+    YOUR TASK:
+    1. Calculate a conservative score (0-100).
+    2. Provide a 'Strategic Reasoning' (approx 3 sentences) explaining the nuance of the match.
+    3. Identify 3-5 specific 'Gaps'. Be granular: mention specific missing libraries, architectural experience mismatches, or domain knowledge deficits.
+    4. Categorize recommending as Shortlist, Reserve (potential with training), or Reject.
+
+    Return ONLY a structural JSON object:
     {
-      "score": number (0-100),
-      "reasoning": "1-2 sentences explanation",
-      "gaps": ["missing skill 1", "missing experience X"],
+      "score": number,
+      "reasoning": "string",
+      "gaps": ["Detailed technical gap 1", "Specific experience mismatch 2"],
       "recommendation": "shortlist" | "reserve" | "reject"
     }
   `;
@@ -142,7 +150,7 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
     return JSON.parse(cleanJson);
   } catch (error) {
     console.error("AI Matching Error:", error);
-    return { score: 0, reasoning: "Evaluation failed", gaps: [], recommendation: 'reject' };
+    return { score: 0, reasoning: "Evaluation failed", gaps: ["Neural engine timeout"], recommendation: 'reject' };
   }
 }
 

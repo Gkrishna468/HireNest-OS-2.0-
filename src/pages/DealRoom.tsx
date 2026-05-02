@@ -42,17 +42,27 @@ export default function DealRoom() {
     { label: 'Realized Revenue', value: formatCurrency(realizedRevenue), trend: '+18.1%', icon: CheckCircle2, color: 'text-blue-600', bg: 'bg-blue-100' },
   ];
 
+  const anonymize = (name: string, type: 'CL' | 'VN', id: string) => {
+    return `${type}-${id.slice(0, 4).toUpperCase()}`;
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Deal Room</h1>
-          <p className="text-slate-500 mt-1">Unified command for revenue flow, placement tracking, and account value.</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Enterprise Deal Room</h1>
+          <p className="text-slate-500 mt-1">Unified command for revenue flow, anonymized placement tracking, and account value.</p>
         </div>
-        <button className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20">
-          <CircleDollarSign className="w-5 h-5" />
-          New Deal Entry
-        </button>
+        <div className="flex gap-3">
+          <button className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 text-sm">
+            <ShieldCheck className="w-4 h-4" />
+            Send MSA / NDA
+          </button>
+          <button className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 text-sm">
+            <CircleDollarSign className="w-4 h-4" />
+            New Deal Entry
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -101,7 +111,9 @@ export default function DealRoom() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">{deal.client_name}</h4>
+                        <h4 className="font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                          {deal.status === 'placed' ? deal.client_name : anonymize(deal.client_name, 'CL', deal.id)}
+                        </h4>
                         <span className="text-slate-300">•</span>
                         <span className="text-sm font-medium text-slate-500 truncate">{deal.job_title}</span>
                       </div>
@@ -110,6 +122,14 @@ export default function DealRoom() {
                           <Users className="w-3 h-3" />
                           {deal.candidate_name}
                         </span>
+                        {deal.vendor_name && (
+                          <>
+                            <span className="text-slate-300">|</span>
+                            <span className="text-slate-400">
+                              Vendor: {deal.status === 'placed' ? deal.vendor_name : anonymize(deal.vendor_name, 'VN', deal.id)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">

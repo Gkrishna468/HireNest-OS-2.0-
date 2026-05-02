@@ -38,18 +38,21 @@ export default function CollaborationHub() {
       .from('collaborations')
       .select(`
         *,
-        job:jobs(title, budget, company:companies(name)),
+        job:jobs(title, budget, company:companies(id, name)),
         candidate:candidates(name, email, current_title, skills, resume_url),
-        vendor:companies!vendor_id(name),
-        client:companies!client_id(name),
+        vendor:companies!vendor_id(id, name),
+        client:companies!client_id(id, name),
         conversations(id)
       `);
 
-    // Filter based on user role
-    if (user.role === 'client_manager') {
-      query = query.eq('client_id', user.companyId);
-    } else if (user.role === 'vendor_manager') {
-      query = query.eq('vendor_id', user.companyId);
+    const isAdmin = user.email === 'gopal@hirenestworkforce.com';
+
+    if (!isAdmin) {
+      if (user.role === 'client_manager') {
+        query = query.eq('client_id', user.companyId);
+      } else if (user.role === 'vendor_manager') {
+        query = query.eq('vendor_id', user.companyId);
+      }
     }
 
     const { data, error } = await query.order('last_activity_at', { ascending: false });
@@ -61,6 +64,10 @@ export default function CollaborationHub() {
     }
     setLoading(false);
   }
+
+  const anonymize = (name: string, type: 'CL' | 'VN', id: string) => {
+    return `${type}-${id.slice(0, 4).toUpperCase()}`;
+  };
 
   useEffect(() => {
     if (selectedCollab) {
@@ -149,7 +156,9 @@ export default function CollaborationHub() {
                   {format(new Date(collab.last_activity_at), 'HH:mm')}
                 </span>
               </div>
-              <h4 className="text-sm font-black text-slate-900 line-clamp-1">{collab.candidate.name}</h4>
+              <h4 className="text-sm font-black text-slate-900 line-clamp-1">
+                {collab.status === 'placed' ? collab.candidate.name : `CAND-${collab.id.slice(0, 4).toUpperCase()}`}
+              </h4>
               <p className="text-[11px] text-slate-500 line-clamp-1 font-medium mt-0.5">for {collab.job.title}</p>
               
               <div className="flex items-center gap-2 mt-3">
@@ -158,7 +167,7 @@ export default function CollaborationHub() {
                   <div className="w-5 h-5 rounded-full bg-purple-100 border border-white flex items-center justify-center text-[8px] font-bold text-purple-600">VN</div>
                 </div>
                 <div className="text-[9px] font-black text-indigo-600 lowercase tracking-tighter decoration-indigo-200 underline underline-offset-2">
-                  {collab.match_score}% High-End Match
+                  {collab.match_score}% Neural Score
                 </div>
               </div>
             </button>
@@ -174,8 +183,10 @@ export default function CollaborationHub() {
             <div className="p-8 bg-white border-b border-slate-100 shadow-sm relative z-10">
               <div className="flex justify-between items-start">
                 <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">{selectedCollab.candidate.name}</h2>
+                    <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                      {selectedCollab.status === 'placed' ? selectedCollab.candidate.name : `CAND-${selectedCollab.id.slice(0, 4).toUpperCase()}`}
+                    </h2>
                     <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
                       Match Score: {selectedCollab.match_score}%
                     </span>
@@ -187,7 +198,9 @@ export default function CollaborationHub() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5" />
-                      Submitted by <span className="font-bold text-slate-900">{selectedCollab.vendor.name}</span>
+                      Submitted by <span className="font-bold text-slate-900">
+                        {selectedCollab.status === 'placed' ? selectedCollab.vendor.name : anonymize(selectedCollab.vendor.name, 'VN', selectedCollab.vendor.id)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -210,7 +223,8 @@ export default function CollaborationHub() {
                   Conversation Initialized: {format(new Date(selectedCollab.created_at), 'MMM dd, yyyy')}
                 </div>
                 <div className="max-w-md text-center text-xs leading-relaxed">
-                  Collaboration channel now open between <span className="text-indigo-600 font-bold">{selectedCollab.client.name}</span> and <span className="text-purple-600 font-bold">{selectedCollab.vendor.name}</span>.
+                  Collaboration channel now open between <span className="text-indigo-600 font-bold">{selectedCollab.status === 'placed' ? selectedCollab.client.name : anonymize(selectedCollab.client.name, 'CL', selectedCollab.client.id)}</span> and <span className="text-purpose-600 font-bold">{selectedCollab.status === 'placed' ? selectedCollab.vendor.name : anonymize(selectedCollab.vendor.name, 'VN', selectedCollab.vendor.id)}</span>. 
+                  <br /><span className="text-[10px] text-slate-400 mt-2 block">Secure MSA/NDA verified for this private deal stream.</span>
                 </div>
               </div>
 

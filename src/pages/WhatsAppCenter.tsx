@@ -24,16 +24,16 @@ export default function WhatsAppCenter() {
   const [activeTab, setActiveTab] = useState<'conversations' | 'automations' | 'config'>('conversations');
   const [isSimulating, setIsSimulating] = useState(false);
   const [linkedAccount, setLinkedAccount] = useState({
-    name: 'HireNest Business - Primary',
-    number: '+91 98765 43210',
+    name: 'HireNest Enterprise - Lead OS',
+    number: '+91 93928 94748',
     status: 'connected',
-    provider: 'Meta Business API',
+    provider: 'Meta Cloud API v2.0',
     webhook: window.location.origin + '/api/webhooks/whatsapp'
   });
 
   async function runBroadcastSimulation() {
     setIsSimulating(true);
-    toast.info('Initiating Marketplace WhatsApp Broadcast...', { icon: <Zap className="w-4 h-4 text-amber-500" /> });
+    toast.info('Initiating Neural Lead Extraction...', { icon: <Bot className="w-4 h-4 text-indigo-500" /> });
     
     await new Promise(r => setTimeout(r, 1500));
     
@@ -41,7 +41,7 @@ export default function WhatsAppCenter() {
     await supabase.from('agent_logs').insert({
       type: 'outreach',
       level: 'info',
-      message: '[WHATSAPP] Parsing 12 active vendor-partner phone numbers for "Senior Java Architect" broadcast.',
+      message: '[WHATSAPP] GPT-4o Human-Like parsing initiated for 12 selected vendor-priority leads.',
       metadata: { channel: 'whatsapp', step: 1 }
     });
 
@@ -51,26 +51,26 @@ export default function WhatsAppCenter() {
     await supabase.from('agent_logs').insert({
       type: 'outreach',
       level: 'success',
-      message: '[WHATSAPP] 12 Template messages delivered. Monitoring for read-receipts and automated parsing of replies.',
+      message: '[WHATSAPP] Dynamic human-like context injected into 12 personalized threads. Delivery confirmed via 9392894748.',
       metadata: { channel: 'whatsapp', step: 2, recipientCount: 12 }
     });
 
-    toast.success('Broadcast successfully delivered to vendor pool.');
+    toast.success('Autonomous Outreach Pulse Complete.');
     setIsSimulating(false);
   }
 
   const automations = [
-    { id: 1, name: 'Vendor Broadcast Notification', trigger: 'Job Post (Broadcast=True)', action: 'WhatsApp Template Message to 50+ Vendors', status: 'active' },
-    { id: 2, name: 'Candidate Interview Reminder', trigger: 'Collaboration Status -> Interviewing', action: 'WhatsApp Template with Calendar Link', status: 'active' },
-    { id: 3, name: 'AI Auto-Reply (Unread)', trigger: 'Inbound message > 2 hours', action: 'Gemini-Flash Sentiment Match + Reply', status: 'active' },
-    { id: 4, name: 'Weekly Merchant Summary', trigger: 'Monday 09:00 AM', action: 'Business Metric Digest to Admin', status: 'paused' },
+    { id: 1, name: 'Neural Intent Recognition', trigger: 'Inbound message', action: 'Classify (Lead/Spam/Vendor) + Contextual Response', status: 'active' },
+    { id: 2, name: 'Human-Like Follow-up Loop', trigger: 'No reply for 24h', action: 'Personalized "Just checking in" from 9392894748', status: 'active' },
+    { id: 3, name: 'Lead Extraction (Auto-Parsing)', trigger: 'Inbound "I have a profile"', action: 'Extract Name/Exp/Skills to Supabase', status: 'active' },
+    { id: 4, name: 'Deal Room Sync', trigger: 'Collaboration status update', action: 'Ping Client/Vendor on WhatsApp with Magic Link', status: 'active' },
   ];
 
   const mockMessages = [
-    { id: 1, type: 'inbound', from: 'Rajesh (Staffing Pro)', text: 'Interested in the Senior AI position. When can we chat?', time: '10:45 AM', status: 'read' },
-    { id: 2, type: 'outbound', from: 'AI Agent', text: 'Hello Rajesh! I can schedule a call for tomorrow at 2 PM. Does that work?', time: '10:46 AM', status: 'sent' },
-    { id: 3, type: 'inbound', from: 'Amit (Apex HR)', text: 'Profile for Siddharth sent via email. 94% match score as requested.', time: '09:30 AM', status: 'read' },
-    { id: 4, type: 'outbound', from: 'System', text: 'BROADCAST: New Java Architect position open in Bengaluru. Budget: 40L.', time: '08:00 AM', status: 'delivered' },
+    { id: 1, type: 'inbound', from: 'Vendor-9921', text: 'Hi, I saw your post. I have a Great Data Scientist profile for the Bengaluru role.', time: '10:45 AM', status: 'read' },
+    { id: 2, type: 'outbound', from: 'HireNest AI', text: 'Thanks for reaching out! I am analyzing the profile now. Can you confirm if they are available for an interview this Thursday?', time: '10:46 AM', status: 'sent' },
+    { id: 3, type: 'inbound', from: 'Client-4412', text: 'The interview loop for Java dev is moving slow. Can we get more profiles?', time: '09:30 AM', status: 'read' },
+    { id: 4, type: 'outbound', from: 'System', text: 'ALERT: 12 new matching profiles extracted from LinkedIn Pulse. Auto-sharing to your Deal Room now.', time: '08:00 AM', status: 'delivered' },
   ];
 
   return (

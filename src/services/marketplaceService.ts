@@ -71,11 +71,58 @@ export async function proposeCollaboration(params: {
   if (error) throw error;
 
   // Create conversation for this collaboration
-  await supabase.from('conversations').insert({
+  const { data: conv } = await supabase.from('conversations').insert({
     collaboration_id: data.id
+  }).select().single();
+
+  // NOTIFY CLIENT
+  await notifyUser({
+    userId: params.clientId, // This should be the owner of the client company
+    title: 'New Candidate Match!',
+    message: `A new candidate with a ${params.matchScore}% match score has been proposed for your job.`,
+    type: 'success',
+    link: `/deal-room/${data.id}`
   });
 
   return data;
+}
+
+/**
+ * NOTIFY USER: Enterprise Notification System
+ */
+export async function notifyUser(params: {
+  userId?: string;
+  companyId?: string;
+  title: string;
+  message: string;
+  type?: 'info' | 'success' | 'warning' | 'error';
+  link?: string;
+}) {
+  // If only companyId is provided, notify all profiles in that company
+  if (params.companyId && !params.userId) {
+    const { data: profiles } = await supabase.from('profiles').select('id').eq('company_id', params.companyId);
+    if (profiles) {
+      const notifications = profiles.map(p => ({
+        user_id: p.id,
+        company_id: params.companyId,
+        title: params.title,
+        message: params.message,
+        type: params.type || 'info',
+        link: params.link
+      }));
+      await supabase.from('notifications').insert(notifications);
+    }
+    return;
+  }
+
+  await supabase.from('notifications').insert({
+    user_id: params.userId,
+    company_id: params.companyId,
+    title: params.title,
+    message: params.message,
+    type: params.type || 'info',
+    link: params.link
+  });
 }
 
 /**
