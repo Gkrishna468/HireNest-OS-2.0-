@@ -21,7 +21,7 @@ import { useData } from '@/contexts/DataContext';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { syncGmailInbox } from '@/services/gmailService';
+import { syncGmailInbox, syncGmailResumes } from '@/services/gmailService';
 
 export default function EmailCenter() {
   const { logs } = useData();
@@ -38,13 +38,33 @@ export default function EmailCenter() {
       .order('received_at', { ascending: false });
     
     if (data) setEmails(data);
-    if (error) toast.error("Failed to load mailbox");
+    if (error) {
+      console.error("Mailbox Load Error:", error);
+      toast.error(`Load Error: ${error.message || "Connection failure"}`);
+    }
     setLoading(false);
+  };
+
+  const syncResumes = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncGmailResumes();
+      toast.success(result.message);
+    } catch (err: any) {
+      toast.error("Resume Ingestion Failed: " + err.message);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   useEffect(() => {
     fetchEmails();
     
+    // Refresh on auth change (vital for OAuth results)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') fetchEmails();
+    });
+
     const channel = supabase
       .channel('email-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emails' }, () => {
@@ -79,6 +99,13 @@ export default function EmailCenter() {
       {/* Sidebar: Email Folders */}
       <div className="w-64 border-r border-slate-100 bg-slate-50/30 flex flex-col p-4">
         <div className="mb-8">
+          <button 
+            className="w-full py-4 mb-4 bg-white border border-slate-200 text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm hover:border-indigo-200 hover:bg-slate-50 transition-all"
+          >
+            <Bot className="w-4 h-4 text-indigo-600" />
+            AI Smart Compose
+          </button>
+
           <button 
             onClick={handleSync}
             disabled={syncing}
@@ -115,6 +142,25 @@ export default function EmailCenter() {
               </button>
             ))}
           </div>
+
+          <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
+            <h3 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Neural Automators</h3>
+            
+            <button 
+              onClick={syncResumes}
+              disabled={syncing}
+              className="w-full px-4 py-3 rounded-xl flex items-center gap-3 text-xs font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all group"
+            >
+              <Zap className="w-4 h-4 text-slate-400 group-hover:text-indigo-500" />
+              Resume Ingestion
+              {syncing && <RefreshCw className="w-3 h-3 animate-spin ml-auto" />}
+            </button>
+
+            <button className="w-full px-4 py-3 rounded-xl flex items-center gap-3 text-xs font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all group">
+              <Bot className="w-4 h-4 text-slate-400 group-hover:text-indigo-500" />
+              Lead Sentiment AI
+            </button>
+          </div>
         </div>
 
         <div className="mt-auto">
@@ -138,8 +184,8 @@ export default function EmailCenter() {
 
       {/* Email List */}
       <div className="w-96 border-r border-slate-100 flex flex-col">
-        <div className="p-6 border-b border-slate-100 bg-white">
-          <div className="relative">
+        <div className="p-6 border-b border-slate-100 bg-white flex items-center justify-between">
+          <div className="relative flex-1 mr-4">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
@@ -147,6 +193,13 @@ export default function EmailCenter() {
               className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
+          <button 
+            onClick={fetchEmails}
+            className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+            title="Refresh List"
+          >
+            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+          </button>
         </div>
         
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
