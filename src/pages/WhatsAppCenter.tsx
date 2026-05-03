@@ -13,6 +13,7 @@ import {
   Settings2,
   RefreshCw,
   Phone,
+  Clock,
   BarChart3,
   CheckCircle2,
   AlertCircle,
@@ -26,7 +27,7 @@ import { useData } from '@/contexts/DataContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { processIncomingWhatsApp, sendWhatsAppMessage, WHATSAPP_PROMPT } from '@/services/whatsappService';
 
 export default function WhatsAppCenter() {

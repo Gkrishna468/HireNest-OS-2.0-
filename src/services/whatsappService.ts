@@ -1,8 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { GoogleGenAI } from "@google/genai";
-
-const genAI = new GoogleGenAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+import { callAISecureProxy } from '@/lib/ai';
 
 /**
  * WHATSAPP SERVICE: Neural Automation for Lead Gen & Recruitment
@@ -108,8 +105,7 @@ export async function processIncomingWhatsApp(from: string, name: string, messag
       ${WHATSAPP_PROMPT}
     `;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await callAISecureProxy(prompt);
     const aiResponse = JSON.parse(text.replace(/```json|```/g, ''));
 
     // 4. Send AI Reply

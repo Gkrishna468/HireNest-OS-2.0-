@@ -23,7 +23,7 @@ import {
   Activity,
   UserPlus
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import { useData } from '@/contexts/DataContext';
 import { cn } from '@/lib/utils';

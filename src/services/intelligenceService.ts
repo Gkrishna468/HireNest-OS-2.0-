@@ -3,32 +3,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { recordDeal } from "./financialService";
 import { calculateAdjustedBudget } from "./marketplaceService";
-
-// SECURITY: Input Validation Schemas
-export const ResumeSchema = z.object({
-  text: z.string().min(10).max(50000),
-});
-
-export const MatchSchema = z.object({
-  jobId: z.string().uuid(),
-  candidateId: z.string().uuid(),
-});
-
-async function callAISecureProxy(prompt: string, context: any = {}) {
-  const response = await fetch("/api/ai/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, context }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || "AI Proxy Error");
-  }
-
-  const data = await response.json();
-  return data.text;
-}
+import { callAISecureProxy } from "@/lib/ai";
 
 /**
  * JOB POSTING: Initial trigger for marketplace

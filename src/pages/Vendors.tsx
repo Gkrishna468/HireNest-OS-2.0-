@@ -37,7 +37,7 @@ import { toast } from 'sonner';
 import { safeArray, safeString } from '@/utils/safe';
 import { cn } from '@/lib/utils';
 import { getAllVendorRatings, VendorPerformance } from '@/services/vendorService';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import type { Vendor, Candidate } from '@/types';
 
 export default function Vendors() {

@@ -1,7 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { callAISecureProxy } from "@/lib/ai";
 
 export interface DiscoveryLead {
   id: string;
@@ -30,9 +28,7 @@ export async function discoverIntentLeads() {
   for (const signal of simulatedSignals) {
     // 2. NEURAL FILTERING (The "Claude" step)
     // Deep research into micro decision makers, tool stacks, and recent events.
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `
+    const text = await callAISecureProxy(`
       Act as a high-tier executive researcher. Research "${signal.company}" based on signal: "${signal.description}".
       
       Extract:
@@ -47,10 +43,10 @@ export async function discoverIntentLeads() {
         "recent_events": ["string"],
         "intent_score": number (0-100)
       }
-    `});
+    `);
 
     try {
-      const dataText = response.text?.replace(/```json|```/g, '') || '{}';
+      const dataText = text?.replace(/```json|```/g, '') || '{}';
       const data = JSON.parse(dataText);
 
       // 3. STORE IN NEURAL OS

@@ -19,7 +19,11 @@ async function startServer() {
   app.use(express.json());
 
   // 1. AI SECURITY PROXY
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn("⚠️ GEMINI_API_KEY is not set in the environment. AI features will fail.");
+  }
+  const genAI = new GoogleGenAI({ apiKey: apiKey || "" });
 
   // Simple Rate Limiting for AI Endpoints
   const requestCounts = new Map<string, { count: number; lastReset: number }>();
@@ -52,14 +56,14 @@ async function startServer() {
 
       const fullPrompt = `${context ? `Context: ${JSON.stringify(context)}\n\n` : ""}User: ${prompt}`;
       
-      const response = await ai.models.generateContent({
+      const response = await genAI.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: fullPrompt
       });
+      const text = response.text;
 
-      res.json({ text: response.text });
+      res.json({ text });
     } catch (error) {
-
       console.error("AI Error:", error);
       res.status(500).json({ error: "Failed to generate AI response" });
     }
@@ -109,11 +113,26 @@ async function startServer() {
           ? `The sender is Candidate ${candidate.name} (Match Score ${candidate.ai_match_score}%). They are currently in ${candidate.stage} stage.`
           : `The sender is a new contact.`;
 
-        const response = await ai.models.generateContent({
+        const response = await genAI.models.generateContent({
           model: "gemini-3-flash-preview",
-          contents: `${context} They sent: "${text}". Generate a professional, helpful WhatsApp reply from HireNest AI. If they ask about status, tell them our neural engine is finalizing approvals.`
+          contents: `
+            Act as "Nestor", the high-end recruitment specialist from HireNest. 
+            You are professional, warm, and highly efficient. 
+            
+            CONTEXT:
+            ${context}
+            
+            USER MESSAGE:
+            "${text}"
+            
+            YOUR TASK:
+            1. Generate a human-like, customized WhatsApp reply. 
+            2. If they are a new contact, politely ask for their current role or top skill to help with lead generation.
+            3. If they ask about status, mention that our 'neural ranking engine' is currently validating their profile against high-priority mandates.
+            4. Keep it concise (under 300 characters), use 1-2 relevant emojis, and be helpful.
+            
+            REPLY:`
         });
-
         const replyText = response.text;
 
         // 3. LOG OUTBOUND REPLY

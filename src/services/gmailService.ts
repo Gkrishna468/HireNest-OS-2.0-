@@ -1,7 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { callAISecureProxy } from "@/lib/ai";
 
 /**
  * GMAIL SERVICE: Enterprise Resume Extraction
@@ -106,13 +104,10 @@ export async function syncGmailResumes() {
       if (part.filename && (part.filename.endsWith('.pdf') || part.filename.endsWith('.docx'))) {
         
         // SIMULATION OF AI EXTRACTION
-        const response = await ai.models.generateContent({
-          model: "gemini-1.5-flash", 
-          contents: `Extract candidate details from this email snippet: "${email.snippet}". 
-            Output JSON: { "name": "string", "skills": [], "experience": number, "summary": "string" }`
-        });
+        const text = await callAISecureProxy(`Extract candidate details from this email snippet: "${email.snippet}". 
+            Output JSON: { "name": "string", "skills": [], "experience": number, "summary": "string" }`);
         
-        const dataText = (await response.response).text().replace(/```json|```/g, '') || '{}';
+        const dataText = text.replace(/```json|```/g, '') || '{}';
         const candidateData = JSON.parse(dataText);
 
         const { error } = await supabase.from('candidates').insert({

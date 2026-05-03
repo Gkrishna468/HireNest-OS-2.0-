@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export default function CollaborationHub() {
   const { user } = useAuth();

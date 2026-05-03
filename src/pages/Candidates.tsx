@@ -32,7 +32,7 @@ import {
   Loader2,
   Target
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { safeArray, safeString, safeNumber, safeDate } from '@/utils/safe';

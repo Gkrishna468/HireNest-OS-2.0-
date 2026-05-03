@@ -1,6 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { callAISecureProxy } from "@/lib/ai";
 
 export interface BriefingResult {
   summary: string;
@@ -29,12 +27,9 @@ export async function generateCandidateBriefing(candidate: any): Promise<Briefin
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt
-    });
-    const text = response.text?.replace(/```json|```/g, '') || '{}';
-    return JSON.parse(text);
+    const text = await callAISecureProxy(prompt);
+    const resultText = text?.replace(/```json|```/g, '') || '{}';
+    return JSON.parse(resultText);
   } catch (error) {
     console.error("Briefing failed", error);
     return {
