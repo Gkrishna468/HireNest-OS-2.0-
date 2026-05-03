@@ -32,6 +32,7 @@ export interface User {
   phone?: string;
   status: 'active' | 'inactive';
   isVerified?: boolean;
+  last_sign_in_at?: string;
 }
 
 export interface Client {

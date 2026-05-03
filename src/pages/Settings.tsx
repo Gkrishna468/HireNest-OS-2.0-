@@ -369,7 +369,94 @@ export default function Settings() {
             </div>
           )}
 
-          {activeTab !== 'supabase' && activeTab !== 'gmail' && (
+          {activeTab === 'profile' && (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg text-slate-900">User Identity</h2>
+                  <p className="text-slate-500 text-xs mt-0.5">Manage your personal operator profile and preferences.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
+                  <p className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm">{user?.email}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Account UID</label>
+                  <p className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-400 text-[10px] break-all">{user?.id}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Operational Role</label>
+                  <p className="px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl font-bold text-indigo-700 text-sm">Enterprise Administrator</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Last Established Link</label>
+                  <p className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm">{user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'company' && (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg text-slate-900">Organization Hub</h2>
+                  <p className="text-slate-500 text-xs mt-0.5">Define your brand and billing architecture.</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 max-w-2xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Company Name</label>
+                    <input
+                      type="text"
+                      defaultValue="HireNest Workforce"
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:border-indigo-500 outline-none text-sm transition-all shadow-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Industry Vertical</label>
+                    <select className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:border-indigo-500 outline-none text-sm transition-all shadow-sm appearance-none">
+                      <option>Recruitment & Staffing</option>
+                      <option>Technology Services</option>
+                      <option>Manufacturing</option>
+                      <option>Healthcare</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-slate-900 rounded-[2rem] border border-slate-800 text-white relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full"></div>
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-black text-xl uppercase tracking-tighter">Enterprise OS Tier</h4>
+                      <p className="text-slate-400 text-xs mt-1">Unlimited Agents • Neural Parsing Included</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-indigo-400">$2,499</span>
+                      <span className="text-slate-400 text-[10px] block font-bold uppercase tracking-widest">Per Cycle</span>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex gap-3">
+                    <button className="flex-1 py-2 bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all">Manage Subscription</button>
+                    <button className="flex-1 py-2 bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition-all">Legacy Invoices</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab !== 'supabase' && activeTab !== 'gmail' && activeTab !== 'security' && activeTab !== 'profile' && activeTab !== 'company' && (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 p-20 border border-slate-100 border-dashed rounded-2xl">
               <SettingsIcon className="w-12 h-12 mb-4 opacity-10" />
               <p className="font-medium">{activeTab[0].toUpperCase() + activeTab.slice(1)} settings coming in next module.</p>

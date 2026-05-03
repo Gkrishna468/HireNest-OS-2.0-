@@ -85,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           companyId: profile.company_id,
           status: profile.status || 'active',
           isVerified: authUser.email_confirmed_at ? true : false,
+          last_sign_in_at: authUser.last_sign_in_at
         });
       } else {
         // Fallback to metadata
@@ -95,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: (authUser.user_metadata?.role as Role) || 'viewer',
           status: 'active',
           isVerified: authUser.email_confirmed_at ? true : false,
+          last_sign_in_at: authUser.last_sign_in_at
         });
       }
     } catch (err) {

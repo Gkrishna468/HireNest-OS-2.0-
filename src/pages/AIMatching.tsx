@@ -84,24 +84,30 @@ export default function AIMatching() {
             recommendation: evaluation.recommendation
           };
         } catch (e) {
+          console.error("Match evaluation error:", e);
           return { ...c, score: 0, recommendation: 'reject' };
         }
       }));
 
       const finalMatches = res
         .sort((a, b) => b.score - a.score)
-        .filter(c => c.score > 20); // Higher threshold for better quality
+        .filter(c => c.score >= 5); // Lower threshold to show even weak matches in demo mode
 
       // Final log entry
       await supabase.from('agent_logs').insert({
         type: 'matching',
         message: `Found ${finalMatches.length} potential matches for ${selectedJob.title}. Top score: ${finalMatches[0]?.score || 0}%`,
-        level: 'success',
+        level: finalMatches.length > 0 ? 'success' : 'warning',
         status: 'finished'
       });
 
       setMatches(finalMatches);
-      toast.success(`Neural scan complete. Found ${finalMatches.length} matches across all sources.`, { id: toastId });
+      
+      if (finalMatches.length === 0) {
+        toast.warning('Neural scan complete, but no candidates met the survival threshold.', { id: toastId });
+      } else {
+        toast.success(`Neural scan complete. Found ${finalMatches.length} matches across all sources.`, { id: toastId });
+      }
     } catch (err: any) {
       toast.error(`Matching Engine failed: ${err.message}`, { id: toastId });
     } finally {
