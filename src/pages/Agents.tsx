@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase';
 import { safeArray } from '@/utils/safe';
 import { runDecisionAgent } from '@/services/intelligenceService';
 import { runCrew } from '@/agents/crew';
+import { syncGmailInbox, syncGmailResumes } from '@/services/gmailService';
 
 const agentTemplates = [
   { id: 'crew', name: 'Neural Crew Orchestrator', icon: Activity, description: 'THE CORE. Coordinates all agents (Decision, Outreach, Reply, Learning) in a single synchronized mission.', status: 'ready', interval: 5, color: 'bg-indigo-600' },
@@ -53,9 +54,12 @@ export default function Agents() {
         insight = await runCrew();
       } else if (agentId === 'decision') {
         insight = await runDecisionAgent();
-      } else if (agentId === 'email' || agentId === 'outreach') {
-        const { count } = await supabase.from('resumes').select('*', { count: 'exact', head: true });
-        insight = `Sync complete. Activity logged in security matrix.`;
+      } else if (agentId === 'email' || agentId === 'outreach' || agentId === 'reply') {
+        const result = await syncGmailInbox();
+        insight = result.message;
+      } else if (agentId === 'resume') {
+        const result = await syncGmailResumes();
+        insight = result.message;
       } else {
         insight = `Agent cycle ${Math.floor(Math.random() * 1000)} completed successfully.`;
       }

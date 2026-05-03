@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Fix Profiles table: Rename legacy 'company' column if it exists to 'company_id'
+-- Fix Profiles table: Rename legacy 'company' column if it exists to 'company_id' and ensure it's UUID
 DO $$ 
 BEGIN 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='company') THEN
@@ -35,6 +35,11 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='company_id') THEN
       ALTER TABLE profiles RENAME COLUMN company TO company_id;
     END IF;
+  END IF;
+
+  -- Ensure company_id is UUID type for RLS reliability
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='company_id' AND data_type = 'text') THEN
+    ALTER TABLE profiles ALTER COLUMN company_id TYPE UUID USING NULLIF(company_id, '')::UUID;
   END IF;
 END $$;
 
@@ -72,6 +77,10 @@ DO $$
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='website') THEN
     ALTER TABLE clients ADD COLUMN website TEXT;
+  END IF;
+  -- Also ensure company_id exists on clients if not there
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='company_id') THEN
+    ALTER TABLE clients ADD COLUMN company_id UUID REFERENCES companies(id);
   END IF;
 END $$;
 
@@ -261,10 +270,10 @@ CREATE POLICY "Users can update own profile" ON profiles
 -- Company Data Isolation: The "Master Gate"
 -- Users can only see data belonging to their company
 CREATE POLICY "Company wide data access" ON companies
-  FOR SELECT USING (id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+  FOR SELECT USING (id IN (SELECT company_id::UUID FROM profiles WHERE id = auth.uid()));
 
 CREATE POLICY "Agreement access" ON agreements
-  FOR SELECT USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+  FOR SELECT USING (company_id IN (SELECT company_id::UUID FROM profiles WHERE id = auth.uid()));
 
 CREATE POLICY "Job access" ON jobs
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -287,36 +296,53 @@ CREATE POLICY "Message access" ON messages
     conversation_id IN (
       SELECT conv.id FROM conversations conv
       JOIN collaborations col ON conv.collaboration_id = col.id
-      WHERE col.vendor_id IN (SELECT company_id FROM profiles WHERE id = auth.uid())
-      OR col.client_id IN (SELECT company_id FROM profiles WHERE id = auth.uid())
+      WHERE col.vendor_id IN (SELECT company_id::UUID FROM profiles WHERE id = auth.uid())
+      OR col.client_id IN (SELECT company_id::UUID FROM profiles WHERE id = auth.uid())
     )
   );
 
 CREATE POLICY "Agent task access" ON agent_tasks
-  FOR ALL USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+  FOR ALL USING (company_id IN (SELECT company_id::UUID FROM profiles WHERE id = auth.uid()));
   
 CREATE POLICY "Client data access" ON clients
   FOR ALL USING (true); -- Simplified for now, in prod should link to company_id
 
 CREATE POLICY "Deal access" ON deals
   FOR ALL USING (
-    job_id IN (SELECT id FROM jobs WHERE company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()))
+    job_id IN (SELECT id FROM jobs WHERE company_id IN (SELECT company_id::UUID FROM profiles WHERE id = auth.uid()))
   );
 
--- 14. Discovery & Intent Leads
-CREATE TABLE IF NOT EXISTS leads (
+-- 15. Emails (Persistent Storage for Ingested Messages)
+CREATE TABLE IF NOT EXISTS emails (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_name TEXT NOT NULL,
-  signal_type TEXT NOT NULL, -- 'hiring_surge', 'content_engagement', 'tech_shift'
-  intent_score INTEGER DEFAULT 0,
-  decision_makers JSONB DEFAULT '[]',
-  tool_stack JSONB DEFAULT '[]',
-  recent_events TEXT[],
-  status TEXT DEFAULT 'warm', -- 'warm', 'approached', 'deal_converted'
-  metadata JSONB DEFAULT '{}',
+  message_id TEXT UNIQUE, -- Gmail message path ID
+  thread_id TEXT,
+  "from" TEXT NOT NULL,
+  sender_email TEXT,
+  subject TEXT,
+  body TEXT,
+  snippet TEXT,
+  status TEXT DEFAULT 'received', -- received, sent, draft
+  is_ai BOOLEAN DEFAULT FALSE,
+  ai_metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  received_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE emails ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Emails access" ON emails FOR ALL USING (true); -- Simplified for dev
+
+-- 16. Inbound Leads / Extraction Cache (To avoid double processing)
+CREATE TABLE IF NOT EXISTS processing_cache (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_id TEXT UNIQUE, -- e.g. gmail message id
+  type TEXT, -- 'resume', 'lead'
+  status TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Leads access" ON leads FOR ALL USING (true);
+ALTER TABLE processing_cache ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Cache access" ON processing_cache FOR ALL USING (true);
+
+-- Ensure website column exists for Clients (Re-verifying path from previous turns)
 
