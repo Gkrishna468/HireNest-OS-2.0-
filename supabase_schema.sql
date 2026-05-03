@@ -342,6 +342,17 @@ CREATE TABLE IF NOT EXISTS emails (
   received_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure received_at column exists if table was created previously without it
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='emails' AND column_name='received_at') THEN
+    ALTER TABLE emails ADD COLUMN received_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='emails' AND column_name='sender_email') THEN
+    ALTER TABLE emails ADD COLUMN sender_email TEXT;
+  END IF;
+END $$;
+
 ALTER TABLE emails ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Emails access" ON emails FOR ALL USING (true); -- Simplified for dev
 

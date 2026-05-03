@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (email === 'admin@hirenest.com' && password === 'admin123')
     ) {
       const execUser: User = { 
-        id: 'executive-root', 
+        id: '00000000-0000-4000-a000-000000000000', 
         email, 
         name: email === 'admin@hirenest.com' ? 'Admin User' : 'Gopala Krishna', 
         role: 'admin', 
