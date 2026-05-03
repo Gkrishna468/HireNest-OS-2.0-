@@ -226,7 +226,7 @@ export default function EmailCenter() {
                     )}
                   </div>
                   <span className="text-[10px] font-bold text-slate-400 tabular-nums">
-                    {format(new Date(mail.created_at || mail.received_at), 'h:mm a')}
+                    {format(new Date(mail.created_at), 'h:mm a')}
                   </span>
                 </div>
                 <h4 className="text-xs font-bold text-slate-700 line-clamp-1">{mail.subject}</h4>

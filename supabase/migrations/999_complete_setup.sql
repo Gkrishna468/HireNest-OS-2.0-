@@ -203,7 +203,45 @@ CREATE TABLE IF NOT EXISTS integrations (
   UNIQUE(user_id, provider)
 );
 
--- 12. RLS SETUP
+-- 12. EMAILS (Gmail Mirror)
+CREATE TABLE IF NOT EXISTS emails (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id text UNIQUE,
+  thread_id text,
+  "from" text NOT NULL,
+  sender_email text,
+  subject text,
+  body text,
+ snippet text,
+  status text DEFAULT 'received',
+  is_ai boolean DEFAULT false,
+  ai_metadata jsonb DEFAULT '{}',
+  created_at timestamptz DEFAULT now()
+);
+
+-- 13. NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id),
+  company_id uuid REFERENCES companies(id),
+  title text,
+  message text,
+  type text DEFAULT 'info',
+  is_read boolean DEFAULT false,
+  link text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 14. PROCESSING CACHE (Gmail Deduplication)
+CREATE TABLE IF NOT EXISTS processing_cache (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_id text UNIQUE,
+  type text,
+  status text DEFAULT 'processed',
+  created_at timestamptz DEFAULT now()
+);
+
+-- 15. RLS SETUP
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;
@@ -214,6 +252,8 @@ ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lead_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE emails ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Shared permissive policy for dev (users see own plus company or all)
 -- In production these would be stricter
@@ -227,3 +267,6 @@ CREATE POLICY "permissive_access" ON deals FOR ALL USING (true);
 CREATE POLICY "permissive_access" ON agent_logs FOR ALL USING (true);
 CREATE POLICY "permissive_access" ON lead_scores FOR ALL USING (true);
 CREATE POLICY "permissive_access" ON integrations FOR ALL USING (true);
+CREATE POLICY "permissive_access" ON emails FOR ALL USING (true);
+CREATE POLICY "permissive_access" ON notifications FOR ALL USING (true);
+CREATE POLICY "permissive_access" ON processing_cache FOR ALL USING (true);
