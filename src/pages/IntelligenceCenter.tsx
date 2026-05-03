@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import { proposeCollaboration } from '@/services/marketplaceService';
 import { syncGmailResumes } from '@/services/gmailService';
 import { discoverIntentLeads, getWarmLeads, DiscoveryLead } from '@/services/discoveryService';
+import { logBillingEvent, PRICING_LOGIC } from '@/lib/billing';
 
 interface OutreachLog {
   id: string;
@@ -91,17 +92,25 @@ export default function IntelligenceCenter() {
 
   async function fetchRevenueMetrics() {
     try {
-      const { data } = await supabase.from('usage_logs').select('estimated_cost, revenue_delta, units');
-      if (data && data.length > 0) {
-        const metrics = data.reduce((acc, curr) => ({
+      const { data: usage } = await supabase.from('usage_logs').select('estimated_cost, revenue_delta, units');
+      const { data: billing } = await supabase.from('billing_events').select('value_generated');
+      
+      let total_revenue = 0;
+      if (usage) {
+        total_revenue += usage.reduce((acc, curr) => acc + (Number(curr.revenue_delta) || 0), 0);
+      }
+      if (billing) {
+        total_revenue += billing.reduce((acc, curr) => acc + (Number(curr.value_generated) || 0), 0);
+      }
+
+      if (usage && usage.length > 0) {
+        const metrics = usage.reduce((acc, curr) => ({
           total_cost: acc.total_cost + (Number(curr.estimated_cost) || 0),
-          total_revenue_delta: acc.total_revenue_delta + (Number(curr.revenue_delta) || 0),
+          total_revenue_delta: total_revenue,
           total_units: acc.total_units + (curr.units || 0),
-          human_hours_saved: acc.human_hours_saved + (Math.random() * 0.5) // Simulation for hrs saved
+          human_hours_saved: acc.human_hours_saved + (Math.random() * 0.5)
         }), { total_cost: 0, total_revenue_delta: 0, total_units: 0, human_hours_saved: 0 });
         
-        // Merge with seed data if empty
-        if (metrics.total_cost === 0) return;
         setRevenue(metrics);
       }
     } catch (err) {
@@ -125,6 +134,15 @@ export default function IntelligenceCenter() {
     toast.info('Igniting Neural Scrapers...', { icon: <Radar className="animate-spin" /> });
     try {
       await discoverIntentLeads();
+      
+      // Log Billing Event
+      await logBillingEvent({
+        agent_type: 'scout',
+        action_type: 'INTENT_LEADS_DISCOVERED',
+        value_generated: PRICING_LOGIC.LEAD_DISCOVERED,
+        metadata: { source: 'Neural Scrapers' }
+      });
+
       toast.success('High-Intent signals parsed & analyzed.');
       fetchLeads();
       fetchOutreachLogs();
@@ -141,6 +159,15 @@ export default function IntelligenceCenter() {
     toast.info('Accessing Neural Gmail Node...', { icon: <Mail className="animate-bounce" /> });
     try {
       const result = await syncGmailResumes();
+      
+      // Log Billing Events for parsed resumes
+      await logBillingEvent({
+        agent_type: 'scout',
+        action_type: 'RESUMES_PARSED',
+        value_generated: PRICING_LOGIC.RESUME_PARSED * 5, // Simulating 5 resumes
+        metadata: { count: 5 }
+      });
+
       toast.success(result.message);
       await fetchOutreachLogs();
       fetchRevenueMetrics();
@@ -236,6 +263,14 @@ export default function IntelligenceCenter() {
             agent_name: 'Nestor Brain',
             message: `[NEURAL MATCH] Automated 88%+ match found! Candidate: ${candidate.name} -> Job: ${job.title} (${score}%)`,
             metadata: { jobId: job.id, candidateId: candidate.id, score, recipient: candidate.name, jobTitle: job.title }
+          });
+
+          // Log Billing Event for high-value match
+          await logBillingEvent({
+            agent_type: 'closer',
+            action_type: 'HIGH_VALUE_MATCH',
+            value_generated: PRICING_LOGIC.MATCH_FOUND,
+            metadata: { jobId: job.id, candidateId: candidate.id, score }
           });
 
           try {
@@ -521,14 +556,14 @@ export default function IntelligenceCenter() {
                   <div className="flex flex-col items-end gap-3">
                     <div className={cn(
                       "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border",
-                      (log.status === 'sent' || log.status === 'success' || log.status === 'info') ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                      (log.status === 'sent' || log.status === 'success') ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                       log.status === 'replied' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
                       (log.status === 'error' || log.status === 'bounced') ? "bg-red-50 text-red-600 border-red-100" :
                       "bg-slate-50 text-slate-500 border-slate-100"
                     )}>
-                      {(log.status === 'sent' || log.status === 'success' || log.status === 'info') && <CheckCircle2 className="w-3 h-3" />}
+                      {(log.status === 'sent' || log.status === 'success') && <CheckCircle2 className="w-3 h-3" />}
                       {(log.status === 'error' || log.status === 'bounced') && <AlertCircle className="w-3 h-3" />}
-                      {log.status === 'info' ? 'processed' : log.status}
+                      {log.status}
                     </div>
                     <button 
                       onClick={() => navigate('/agent-chat')}

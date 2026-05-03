@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { safeArray, safeString, safeNumber, safeDate } from '@/utils/safe';
 import { generateCandidateBriefing, maskCandidateData, BriefingResult } from '@/services/briefingService';
+import { initiateAutonomousClosing } from '@/services/closerService';
 
 export default function Candidates() {
   const { user } = useAuth();
@@ -48,6 +49,7 @@ export default function Candidates() {
   const [briefing, setBriefing] = useState<BriefingResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isMasking, setIsMasking] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   const [newCandidate, setNewCandidate] = useState({
     name: '',
@@ -105,6 +107,24 @@ export default function Candidates() {
       toast.success('Anonymized Profile ready for sharing.');
       setIsMasking(false);
     }, 1500);
+  }
+
+  async function handleAutonomousClosing() {
+    if (!selectedCandidate) return;
+    setIsClosing(true);
+    toast.info('Initiating Closing Sequence...', { icon: <Zap className="animate-bounce" /> });
+    
+    try {
+      // For simulation, we'll pick a random job if none selected
+      const res = await initiateAutonomousClosing(selectedCandidate.id, 'any-job-id'); 
+      if (res.success) {
+        toast.success('Closer Agent is now handling negotiation.');
+      }
+    } catch (err) {
+      toast.error('Closer sequence failed.');
+    } finally {
+      setIsClosing(false);
+    }
   }
 
   const filteredCandidates = safeArray(candidates).filter(c => 
@@ -334,14 +354,15 @@ export default function Candidates() {
 
                 <div className="flex gap-4">
                   <button 
-                    onClick={handleMaskAndShare}
-                    className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
+                    onClick={handleAutonomousClosing}
+                    disabled={isClosing}
+                    className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/30"
                   >
-                    <Lock className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
-                    Secure Mask & Share
+                    {isClosing ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Zap className="w-4 h-4 text-yellow-400 fill-yellow-400" />}
+                    Autonomous Closer
                   </button>
-                  <button className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10">
-                    <Send className="w-4 h-4" />
+                  <button className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group shadow-sm">
+                    <Send className="w-4 h-4 text-slate-400" />
                     Move to Next Stage
                   </button>
                 </div>

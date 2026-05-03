@@ -32,6 +32,7 @@ import Marketplace from './pages/Marketplace';
 import AgentChat from './pages/AgentChat';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -62,6 +63,7 @@ export default function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/jobs" element={<PrivateRoute><Jobs /></PrivateRoute>} />
             <Route path="/candidates" element={<PrivateRoute><Candidates /></PrivateRoute>} />

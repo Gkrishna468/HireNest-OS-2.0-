@@ -56,11 +56,10 @@ async function startServer() {
 
       const fullPrompt = `${context ? `Context: ${JSON.stringify(context)}\n\n` : ""}User: ${prompt}`;
       
-      const response = await genAI.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: fullPrompt
-      });
-      const text = response.text;
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(fullPrompt);
+      const response = await result.response;
+      const text = response.text();
 
       res.json({ text });
     } catch (error) {
@@ -113,9 +112,8 @@ async function startServer() {
           ? `The sender is Candidate ${candidate.name} (Match Score ${candidate.ai_match_score}%). They are currently in ${candidate.stage} stage.`
           : `The sender is a new contact.`;
 
-        const response = await genAI.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(`
             Act as "Nestor", the high-end recruitment specialist from HireNest. 
             You are professional, warm, and highly efficient. 
             
@@ -131,9 +129,10 @@ async function startServer() {
             3. If they ask about status, mention that our 'neural ranking engine' is currently validating their profile against high-priority mandates.
             4. Keep it concise (under 300 characters), use 1-2 relevant emojis, and be helpful.
             
-            REPLY:`
-        });
-        const replyText = response.text;
+            REPLY:`);
+        
+        const response = await result.response;
+        const replyText = response.text();
 
         // 3. LOG OUTBOUND REPLY
         await supabase.from('agent_logs').insert({

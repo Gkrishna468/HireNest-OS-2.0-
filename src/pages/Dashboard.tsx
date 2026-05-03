@@ -7,6 +7,7 @@ import React from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { 
   Briefcase, 
   Users, 
@@ -25,8 +26,20 @@ export default function Dashboard() {
   const { jobs, candidates, clients, vendors, logs, deals } = useData();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [billableRevenue, setBillableRevenue] = React.useState(0);
 
-  const totalRevenue = deals.reduce((sum, d) => sum + (Number(d.revenue_amount) || 0), 0);
+  React.useEffect(() => {
+    async function fetchBilling() {
+      const { data } = await supabase.from('billing_events').select('value_generated');
+      if (data) {
+        const total = data.reduce((acc, curr) => acc + (Number(curr.value_generated) || 0), 0);
+        setBillableRevenue(total);
+      }
+    }
+    fetchBilling();
+  }, []);
+
+  const totalRevenue = deals.reduce((sum, d) => sum + (Number(d.revenue_amount) || 0), 0) + billableRevenue;
   const closedDeals = deals.filter(d => d.status === 'placed').length;
 
   const getWelcomeMessage = () => {
