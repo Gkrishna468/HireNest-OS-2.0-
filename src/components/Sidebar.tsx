@@ -23,7 +23,9 @@ import {
   Handshake,
   Globe,
   BrainCircuit,
-  Mail
+  Mail,
+  Cpu,
+  Coins
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -32,22 +34,17 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 const navItems = [
   { icon: ShieldCheck, label: 'Command Center', path: '/exec-suite' },
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: BrainCircuit, label: 'Agent Intelligence', path: '/intelligence' },
-  { icon: Mail, label: 'Email Center', path: '/email' },
-  { icon: MessageSquare, label: 'WhatsApp Business', path: '/whatsapp' },
+  { icon: BrainCircuit, label: 'Intelligence OS', path: '/intelligence' },
+  { icon: Mail, label: 'Email Node', path: '/email' },
+  { icon: MessageSquare, label: 'WhatsApp Node', path: '/whatsapp' },
+  { icon: Cpu, label: 'Autonomous Agents', path: '/agents' },
+  { icon: Coins, label: 'Revenue Hub', path: '/deal-room' },
   { icon: Globe, label: 'Marketplace', path: '/marketplace' },
-  { icon: Handshake, label: 'Collaboration Hub', path: '/collaboration' },
-  { icon: Briefcase, label: 'Jobs', path: '/jobs' },
-  { icon: Users, label: 'Candidates', path: '/candidates' },
-  { icon: Building2, label: 'Clients', path: '/clients' },
-  { icon: Truck, label: 'Vendors', path: '/vendors' },
-  { icon: FileText, label: 'Resumes', path: '/resumes' },
-  { icon: Bot, label: 'AI Agents', path: '/agents' },
-  { icon: Zap, label: 'AI Matching', path: '/ai-matching' },
-  { icon: History, label: 'Follow-ups', path: '/follow-ups' },
-  { icon: TrendingUp, label: 'Deal Room', path: '/deal-room' },
-  { icon: Bot, label: 'Agent Chat', path: '/agent-chat' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
+  { icon: Briefcase, label: 'Job Requisitions', path: '/jobs' },
+  { icon: Users, label: 'Candidate Pool', path: '/candidates' },
+  { icon: FileText, label: 'Neural Parsing', path: '/resumes' },
+  { icon: Zap, label: 'Match Engine', path: '/ai-matching' },
+  { icon: Settings, label: 'OS Settings', path: '/settings' },
 ];
 
 export function Sidebar() {

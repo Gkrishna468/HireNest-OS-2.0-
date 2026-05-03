@@ -456,5 +456,20 @@ CREATE TABLE IF NOT EXISTS usage_logs (
 ALTER TABLE usage_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Usage access" ON usage_logs FOR ALL USING (true);
 
--- Ensure website column exists for Clients (Re-verifying path from previous turns)
+-- 20. Monetization & Billing Engine (The Revenue Layer)
+CREATE TABLE IF NOT EXISTS billing_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id UUID,
+  agent_type TEXT, -- 'scout', 'engager', 'closer'
+  action_type TEXT,
+  value_generated NUMERIC(10,2),
+  is_billable BOOLEAN DEFAULT true,
+  status TEXT DEFAULT 'pending', -- 'pending', 'invoiced', 'paid'
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE billing_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Billing access" ON billing_events FOR ALL USING (true);
+
 
