@@ -25,25 +25,36 @@ export async function safeInsert(table: string, payload: any) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
-    // Fetch profile to get company_id
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('company_id')
-      .eq('id', user?.id)
-      .single();
+    let profile = null;
+    if (user) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      profile = data;
+    }
 
-    const cleanPayload = {
-      ...payload,
-      user_id: user?.id,
-      company_id: profile?.company_id,
-    };
-    return safeQuery(
-      supabase.from(table).insert(cleanPayload).select(),
-      []
-    );
+    const cleanPayload = { ...payload };
+    
+    // Only inject if not the companies table itself and we have the values
+    if (table !== 'companies') {
+      if (user && !cleanPayload.user_id) cleanPayload.user_id = user.id;
+      if (profile?.company_id && !cleanPayload.company_id) cleanPayload.company_id = profile.company_id;
+    }
+
+    const { data, error } = await supabase.from(table).insert(cleanPayload).select();
+    
+    if (error) {
+      console.error(`Supabase Insert Error [${table}]:`, error.message, error.details);
+      // In a real app, you might want to re-throw or handle this specifically
+      throw error; 
+    }
+    
+    return data ?? [];
   } catch (err) {
-    console.error(`Error inserting into ${table}:`, err);
-    return [];
+    console.error(`Unexpected error inserting into ${table}:`, err);
+    throw err;
   }
 }
 

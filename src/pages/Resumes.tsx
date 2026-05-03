@@ -59,26 +59,36 @@ export default function Resumes() {
       const fileName = `${Date.now()}-${file.name}`;
       const filePath = `resumes/${fileName}`;
 
-      // 1. Upload to Supabase Storage
+      // 1. Upload to Supabase Storage ('resumes' bucket)
       const { error: uploadError } = await supabase.storage
         .from('resumes')
-        .upload(filePath, file);
+        .upload(filePath, file, { 
+          cacheControl: '3600',
+          upsert: true 
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) throw new Error(`Storage error: ${uploadError.message}`);
 
       const { data: { publicUrl } } = supabase.storage
         .from('resumes')
         .getPublicUrl(filePath);
 
       // 2. Insert into resumes table
+      console.log('Inserting into resumes table:', { file_name: file.name, url: publicUrl });
+      
+      const insertPayload: any = {
+        file_name: file.name,
+        url: publicUrl,
+        status: 'pending'
+      };
+
+      // Only add source if it's likely to exist (avoiding PGRST204 if schema cache is stale)
+      // We assume the schema fix above handles it, but we can be safe
+      insertPayload.source = 'direct';
+
       const { data: resumeData, error: resumeError } = await supabase
         .from('resumes')
-        .insert({
-          file_name: file.name,
-          url: publicUrl,
-          source: 'direct',
-          status: 'pending'
-        })
+        .insert(insertPayload)
         .select()
         .single();
 

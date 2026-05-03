@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Plus, 
   Search, 
@@ -38,13 +39,48 @@ import { safeArray, safeString, safeNumber, safeDate } from '@/utils/safe';
 import { generateCandidateBriefing, maskCandidateData, BriefingResult } from '@/services/briefingService';
 
 export default function Candidates() {
-  const { candidates, loading, clients, addCandidate, updateCandidateStatus } = useData();
+  const { user } = useAuth();
+  const { candidates, loading, clients, addCandidate, updateCandidateStatus, userProfile } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [briefing, setBriefing] = useState<BriefingResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isMasking, setIsMasking] = useState(false);
+
+  const [newCandidate, setNewCandidate] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    currentTitle: '',
+    skills: '',
+    experience: '0',
+    resumeUrl: ''
+  });
+
+  const isAdmin = user?.role === 'admin' || user?.email === 'gopal@hirenestworkforce.com';
+  const isVendor = userProfile?.type === 'vendor';
+
+  async function handleAddCandidate(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...newCandidate,
+        skills: newCandidate.skills.split(',').map(s => s.trim()).filter(Boolean),
+        vendorCompanyId: isVendor ? userProfile?.company_id : null,
+        source: isVendor ? 'vendor' : 'internal'
+      };
+      
+      await addCandidate(payload);
+      setIsAddModalOpen(false);
+      setNewCandidate({
+        name: '', email: '', phone: '', currentTitle: '', skills: '', experience: '0', resumeUrl: ''
+      });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add candidate');
+    }
+  }
 
   async function handleGenerateBriefing() {
     if (!selectedCandidate) return;
@@ -90,7 +126,102 @@ export default function Candidates() {
 
   return (
     <div className="space-y-6">
-      {/* CANDIDATE DETAIL MODAL */}
+      {/* ADD CANDIDATE MODAL */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden"
+          >
+            <div className="p-8 bg-slate-900 text-white flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black tracking-tight uppercase">Talent Registration</h2>
+                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Onboarding new candidate to ecosystem</p>
+              </div>
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCandidate} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newCandidate.name}
+                  onChange={(e) => setNewCandidate({...newCandidate, name: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={newCandidate.email}
+                  onChange={(e) => setNewCandidate({...newCandidate, email: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Title</label>
+                <input
+                  type="text"
+                  value={newCandidate.currentTitle}
+                  onChange={(e) => setNewCandidate({...newCandidate, currentTitle: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Years Experience</label>
+                <input
+                  type="number"
+                  value={newCandidate.experience}
+                  onChange={(e) => setNewCandidate({...newCandidate, experience: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Expertise Stack (comma-separated)</label>
+                <input
+                  type="text"
+                  required
+                  value={newCandidate.skills}
+                  onChange={(e) => setNewCandidate({...newCandidate, skills: e.target.value})}
+                  placeholder="React, TypeScript, AWS, Python"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="md:col-span-2 flex items-center justify-end gap-4 mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-6 py-3 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all border border-slate-200"
+                >
+                  Discard
+                </button>
+                <button 
+                  type="submit"
+                  className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/30 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Synchronize Talent
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
       {selectedCandidate && isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div 
@@ -262,15 +393,15 @@ export default function Candidates() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Talent Pool</h1>
-          <p className="text-slate-500 mt-1">Global workspace for unified candidate intelligence and pipeline management.</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Talent <span className="text-indigo-600">Pool</span></h1>
+          <p className="text-slate-500 mt-1 font-medium italic">"Welcome, Founder. Currently managing {candidates.length} candidate profiles in the secure OS."</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center gap-2 bg-slate-900 text-white px-5 py-3 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl"
         >
           <Plus className="w-5 h-5" />
-          Add Candidate
+          Onboard Talent
         </button>
       </div>
 

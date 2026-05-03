@@ -60,6 +60,8 @@ export interface Vendor {
   company?: string;
   email?: string;
   phone?: string;
+  whatsapp?: string;
+  website?: string;
   location?: string;
   specialization?: string[];
   isRecruiter?: boolean;

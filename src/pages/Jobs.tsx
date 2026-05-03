@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Plus, 
   Search, 
@@ -34,7 +35,8 @@ import { safeArray, safeString, safeDate } from '@/utils/safe';
 import { broadcastJob } from '@/services/marketplaceService';
 
 export default function Jobs() {
-  const { jobs, loading, approveJobWithBudget, addJob } = useData();
+  const { user } = useAuth();
+  const { jobs, loading, approveJobWithBudget, addJob, clients, userProfile } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isApproveOpen, setIsApproveOpen] = useState(false);
@@ -52,13 +54,21 @@ export default function Jobs() {
     skills: ''
   });
 
+  // Derived user type
+  const isAdmin = user?.role === 'admin' || user?.email === 'gopal@hirenestworkforce.com';
+  const isClient = userProfile?.type === 'client';
+
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addJob({
+      // Data Cleaning for UUID fields
+      const jobData = {
         ...newJob,
+        clientId: newJob.clientId === '' ? null : newJob.clientId,
         skills: newJob.skills.split(',').map(s => s.trim()).filter(Boolean)
-      });
+      };
+
+      await addJob(jobData);
       toast.success('Job created successfully');
       setIsModalOpen(false);
       setNewJob({
@@ -71,8 +81,8 @@ export default function Jobs() {
         description: '',
         skills: ''
       });
-    } catch (err) {
-      toast.error('Failed to create job');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create job');
     }
   };
 
@@ -170,7 +180,9 @@ export default function Jobs() {
                   </h3>
                   <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
                     <Building2 className="w-4 h-4" />
-                    <span className="font-medium text-slate-700">{job.clientName || 'Direct Hire'}</span>
+                    <span className="font-medium text-slate-700">
+                      {isAdmin || isClient ? (job.clientName || 'Direct Hire') : `ORG-${job.clientId?.slice(0, 8).toUpperCase() || 'PRIVATE'}`}
+                    </span>
                     <span className="text-slate-300">•</span>
                     <MapPin className="w-4 h-4" />
                     <span>{job.location}</span>
@@ -306,14 +318,36 @@ export default function Jobs() {
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Client / Company</label>
-                <input
-                  type="text"
-                  required
-                  value={newJob.clientName}
-                  onChange={(e) => setNewJob({...newJob, clientName: e.target.value})}
-                  placeholder="e.g. TechCorp Solutions"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
+                {isAdmin ? (
+                  <select
+                    required
+                    value={newJob.clientId}
+                    onChange={(e) => {
+                      const selectedClient = clients.find(c => c.id === e.target.value);
+                      setNewJob({
+                        ...newJob, 
+                        clientId: e.target.value,
+                        clientName: selectedClient?.name || ''
+                      });
+                    }}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                  >
+                    <option value="">Select a Client Partner</option>
+                    {safeArray(clients).map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.clientCode})</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    disabled={isClient}
+                    value={isClient ? userProfile.company_name : newJob.clientName}
+                    onChange={(e) => setNewJob({...newJob, clientName: e.target.value})}
+                    placeholder="e.g. TechCorp Solutions"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all disabled:opacity-50"
+                  />
+                )}
               </div>
 
               <div className="space-y-2">

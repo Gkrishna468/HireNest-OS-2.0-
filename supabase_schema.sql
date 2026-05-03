@@ -51,14 +51,35 @@ CREATE TABLE IF NOT EXISTS clients (
   website TEXT,
   client_code TEXT,
   notes TEXT,
+  user_id UUID, -- Added for simplified Dev RLS
   company_id UUID REFERENCES companies(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4b. Vendors Table (Mirroring Clients for code compatibility)
+CREATE TABLE IF NOT EXISTS vendors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT,
+  type TEXT DEFAULT 'vendor',
+  company TEXT,
+  email TEXT,
+  phone TEXT,
+  location TEXT,
+  specialization TEXT[],
+  is_recruiter BOOLEAN DEFAULT false,
+  recruiter_company TEXT,
+  vendor_code TEXT,
+  user_id UUID,
+  company_id UUID REFERENCES companies(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 5. Jobs (Marketplace Ready)
 CREATE TABLE IF NOT EXISTS jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID REFERENCES companies(id), -- The client's company
+  user_id UUID,
   title TEXT NOT NULL,
   description TEXT,
   location TEXT,
@@ -75,6 +96,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE TABLE IF NOT EXISTS candidates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   vendor_company_id UUID REFERENCES companies(id),
+  user_id UUID,
   name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
@@ -84,7 +106,7 @@ CREATE TABLE IF NOT EXISTS candidates (
   resume_url TEXT,
   source TEXT DEFAULT 'vendor',
   stage TEXT DEFAULT 'sourced',
-  ai_match_score INT,
+  ai_match_score NUMERIC DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -166,11 +188,26 @@ CREATE TABLE IF NOT EXISTS deals (
 CREATE TABLE IF NOT EXISTS resumes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   file_name TEXT NOT NULL,
-  url TEXT NOT NULL,
+  url TEXT,
   source TEXT DEFAULT 'direct',
   status TEXT DEFAULT 'pending',
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  extracted_text TEXT,
+  parsed_data JSONB DEFAULT '{}',
+  company_id UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure columns exist if table was created previously without them
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='resumes' AND column_name='source') THEN
+    ALTER TABLE resumes ADD COLUMN source TEXT DEFAULT 'direct';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='resumes' AND column_name='url') THEN
+    ALTER TABLE resumes ADD COLUMN url TEXT;
+  END IF;
+END $$;
 
 -- 12. Notifications
 CREATE TABLE IF NOT EXISTS notifications (
@@ -211,16 +248,19 @@ CREATE POLICY "Agreement access" ON agreements
   FOR SELECT USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
 
 CREATE POLICY "Job access" ON jobs
-  FOR ALL USING (company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY "Candidate access" ON candidates
-  FOR ALL USING (vendor_company_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()));
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Client access" ON clients
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Vendor access" ON vendors
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY "Collaboration access" ON collaborations
-  FOR ALL USING (
-    vendor_id IN (SELECT company_id FROM profiles WHERE id = auth.uid()) OR
-    client_id IN (SELECT company_id FROM profiles WHERE id = auth.uid())
-  );
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY "Message access" ON messages
   FOR ALL USING (

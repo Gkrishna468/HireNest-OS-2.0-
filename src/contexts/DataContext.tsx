@@ -11,6 +11,7 @@ import { getJobs, createJob, approveJob } from '@/lib/api/jobs';
 import { getAllCandidates, createCandidate, updateCandidate, deleteCandidate } from '@/lib/api/candidates';
 import type { Client, Vendor, Job, Candidate, AgentLog, Deal } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface DataContextType {
   clients: Client[];
@@ -126,48 +127,78 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const addClient = async (data: Partial<Client>) => {
-    // Auto-generate Client Code if not present
-    if (!data.clientCode) {
-      const count = clients.length + 1;
-      data.clientCode = `C-${String(count).padStart(3, '0')}`;
+    try {
+      if (!data.clientCode) {
+        const count = clients.length + 1;
+        data.clientCode = `C-${String(count).padStart(3, '0')}`;
+      }
+      await createClient(data);
+      toast.success('Client registered in Neural OS.');
+      await refreshAll();
+    } catch (err: any) {
+      console.error('Add client failed:', err);
+      toast.error(`Database Error: ${err.message || 'Failed to save client'}`);
     }
-    await createClient(data);
-    await refreshAll();
   };
 
   const updateClientData = async (id: string, data: Partial<Client>) => {
-    await updateClient(id, data);
-    await refreshAll();
-  };
-
-  const addVendor = async (data: Partial<Vendor>) => {
-    // Auto-generate Vendor Code if not present
-    if (!data.vendorCode) {
-      const count = vendors.length + 1;
-      data.vendorCode = `V-${String(count).padStart(3, '0')}`;
+    try {
+      await updateClient(id, data);
+      toast.success('Client updated.');
+      await refreshAll();
+    } catch (err: any) {
+      toast.error('Update failed');
     }
-    // Mapping: ensure companyId matches user context if possible
-    if (!data.companyId && userProfile?.company_id) {
-      data.companyId = userProfile.company_id;
-    }
-    await createVendor(data);
-    await refreshAll();
   };
 
   const updateVendorData = async (id: string, data: Partial<Vendor>) => {
-    await updateVendor(id, data);
-    await refreshAll();
+    try {
+      await updateVendor(id, data);
+      toast.success('Vendor updated.');
+      await refreshAll();
+    } catch (err: any) {
+      toast.error('Update failed');
+    }
+  };
+
+  const addVendor = async (data: Partial<Vendor>) => {
+    try {
+      if (!data.vendorCode) {
+        const count = vendors.length + 1;
+        data.vendorCode = `V-${String(count).padStart(3, '0')}`;
+      }
+      if (!data.companyId && userProfile?.company_id) {
+        data.companyId = userProfile.company_id;
+      }
+      await createVendor(data);
+      toast.success('Vendor onboarded successfully.');
+      await refreshAll();
+    } catch (err: any) {
+      console.error('Add vendor failed:', err);
+      toast.error(`Database Error: ${err.message || 'Failed to save vendor'}`);
+    }
   };
 
   const addJob = async (data: Partial<Job>) => {
-    // If job has clientId, we should ideally check client mapping
-    await createJob(data);
-    await refreshAll();
+    try {
+      await createJob(data);
+      toast.success('Job broadcasted to marketplace.');
+      await refreshAll();
+    } catch (err: any) {
+      console.error('Add job failed:', err);
+      toast.error(`Database Error: ${err.message || 'Failed to save job'}`);
+    }
   };
 
   const addCandidate = async (data: Partial<Candidate>) => {
-    await createCandidate(data);
-    await refreshAll();
+    try {
+      await createCandidate(data);
+      toast.success('Candidate profile synchronized.');
+      await refreshAll();
+    } catch (err: any) {
+      console.error('Add candidate failed:', err);
+      toast.error(`Database Error: ${err.message || 'Failed to save candidate'}`);
+    }
   };
 
   const updateCandidateData = async (id: string, data: Partial<Candidate>) => {
