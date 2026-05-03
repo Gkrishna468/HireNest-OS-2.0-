@@ -51,14 +51,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     setLoading(true);
     try {
-      // Fetch User Profile first for context
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      setUserProfile(profile);
+      // Fetch User Profile first for context - Skip for mock executive user
+      if (user.id !== '00000000-0000-4000-a000-000000000000') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        setUserProfile(profile);
+      } else {
+        setUserProfile({
+          full_name: user.name,
+          email: user.email,
+          role: 'admin',
+          company_id: null
+        });
+      }
 
       const [cData, vData, jData, candData, dealData] = await Promise.all([
         getClients(),

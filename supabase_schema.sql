@@ -356,7 +356,24 @@ END $$;
 ALTER TABLE emails ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Emails access" ON emails FOR ALL USING (true); -- Simplified for dev
 
--- 16. Inbound Leads / Extraction Cache (To avoid double processing)
+-- 16. Leads Table
+CREATE TABLE IF NOT EXISTS leads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_name TEXT NOT NULL,
+  signal_type TEXT,
+  intent_score INT,
+  decision_makers JSONB DEFAULT '[]',
+  tool_stack TEXT[],
+  recent_events TEXT[],
+  status TEXT DEFAULT 'warm',
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Leads access" ON leads FOR ALL USING (true);
+
+-- 17. Inbound Leads / Extraction Cache (To avoid double processing)
 CREATE TABLE IF NOT EXISTS processing_cache (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_id TEXT UNIQUE, -- e.g. gmail message id
