@@ -41,7 +41,9 @@ const navItems = [
   { icon: Coins, label: 'Revenue Hub', path: '/deal-room' },
   { icon: Globe, label: 'Marketplace', path: '/marketplace' },
   { icon: Briefcase, label: 'Job Requisitions', path: '/jobs' },
+  { icon: Building2, label: 'Strategic Clients', path: '/clients' },
   { icon: Users, label: 'Candidate Pool', path: '/candidates' },
+  { icon: Truck, label: 'Vendor Network', path: '/vendors' },
   { icon: FileText, label: 'Neural Parsing', path: '/resumes' },
   { icon: Zap, label: 'Match Engine', path: '/ai-matching' },
   { icon: Settings, label: 'OS Settings', path: '/settings' },
@@ -58,7 +60,7 @@ export function Sidebar() {
       // "ai matching" -> AI Matching
       // "candidates" -> Candidates
       // "pipelines" -> Deal Room (Recruiters need to see deals they are working on)
-      const recruiterAllowed = ['Dashboard', 'AI Matching', 'Jobs', 'Candidates', 'Resumes', 'Deal Room', 'Email Center', 'Settings'];
+      const recruiterAllowed = ['Dashboard', 'Match Engine', 'Job Requisitions', 'Candidate Pool', 'Neural Parsing', 'Revenue Hub', 'Email Node', 'OS Settings'];
       return recruiterAllowed.includes(item.label);
     }
     return true;
