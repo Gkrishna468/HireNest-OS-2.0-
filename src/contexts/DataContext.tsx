@@ -50,24 +50,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const refreshAll = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    try {
-      // Fetch User Profile first for context - Skip for mock executive user
-      if (user.id !== '00000000-0000-4000-a000-000000000000') {
-        const { data: profile } = await supabase
+    
+    // STRATEGIC FIX: Mock user should never hit profiles table to avoid 406/404 errors
+    if (user.id === '00000000-0000-4000-a000-000000000000') {
+      setUserProfile({
+        full_name: user.name,
+        email: user.email,
+        role: 'admin',
+        company_id: null
+      });
+    } else {
+      try {
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .maybeSingle();
         
-        setUserProfile(profile);
-      } else {
-        setUserProfile({
-          full_name: user.name,
-          email: user.email,
-          role: 'admin',
-          company_id: null
-        });
+        if (profile) {
+          setUserProfile(profile);
+        }
+      } catch (err) {
+        console.error("Profile fetch error skipped for resilience");
       }
+    }
+
+    try {
 
       const [cData, vData, jData, candData, dealData] = await Promise.all([
         getClients(),

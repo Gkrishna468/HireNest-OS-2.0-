@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    // Executive Bypass for GOPAL and Demo Admin
+    // STRATEGIC BYPASS: Mock users for dev speed
     if (
       (email === 'gopal@hirenestworkforce.com' && password === 'founding2026') ||
       (email === 'admin@hirenest.com' && password === 'admin123')

@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
@@ -23,7 +23,7 @@ async function startServer() {
   if (!apiKey) {
     console.warn("⚠️ GEMINI_API_KEY is not set in the environment. AI features will fail.");
   }
-  const genAI = new GoogleGenAI({ apiKey: apiKey || "" });
+  const genAI = new GoogleGenerativeAI(apiKey || "");
 
   // Simple Rate Limiting for AI Endpoints
   const requestCounts = new Map<string, { count: number; lastReset: number }>();
