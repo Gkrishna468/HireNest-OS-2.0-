@@ -28,28 +28,52 @@ import { toast } from 'sonner';
 
 export default function AIMatching() {
   const { jobs, candidates } = useData();
+  const [resumes, setResumes] = useState<any[]>([]);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [isMatching, setIsMatching] = useState(false);
+
+  // Fetch resumes directly to bypass any caching in DataContext
+  const fetchResumes = async () => {
+    const { data } = await supabase.from('resumes').select('*').order('created_at', { ascending: false });
+    if (data) setResumes(data);
+  };
+
+  React.useEffect(() => {
+    fetchResumes();
+  }, []);
 
   const runMatching = async () => {
     if (!selectedJob) return;
     setIsMatching(true);
     
+    // Combine structural candidates and unstructured resumes
+    const resumePool = resumes.map(r => ({
+      id: r.id,
+      name: r.file_name,
+      skills: r.parsed_data?.skills || [],
+      experience: r.extracted_text || '',
+      yearsExperience: r.parsed_data?.yearsOfExperience || 0,
+      location: r.parsed_data?.location || 'Extracted',
+      source: 'resume_repo',
+      url: r.url
+    }));
+
+    const totalPool = [...candidates, ...resumePool];
+    
     // Create an agent log for this "Autonomous" activity
     await supabase.from('agent_logs').insert({
       type: 'matching',
-      message: `Neural Engine scanning candidates for: ${selectedJob.title}`,
+      message: `Neural Engine scanning ${totalPool.length} profiles (CRM + Resumes) for: ${selectedJob.title}`,
       level: 'info',
       status: 'running'
     });
 
-    const results: any[] = [];
-    const toastId = toast.loading(`AI Engine evaluating ${candidates.length} profiles...`);
+    const toastId = toast.loading(`AI Engine evaluating ${totalPool.length} profiles...`);
 
     try {
       // Parallel evaluation
-      const res = await Promise.all(candidates.map(async (c) => {
+      const res = await Promise.all(totalPool.map(async (c) => {
         try {
           const evaluation = await scoreCandidateForJob(selectedJob, c);
           return {
@@ -66,7 +90,7 @@ export default function AIMatching() {
 
       const finalMatches = res
         .sort((a, b) => b.score - a.score)
-        .filter(c => c.score > 10);
+        .filter(c => c.score > 20); // Higher threshold for better quality
 
       // Final log entry
       await supabase.from('agent_logs').insert({
@@ -77,7 +101,7 @@ export default function AIMatching() {
       });
 
       setMatches(finalMatches);
-      toast.success(`Neural scan complete. Found ${finalMatches.length} matches.`, { id: toastId });
+      toast.success(`Neural scan complete. Found ${finalMatches.length} matches across all sources.`, { id: toastId });
     } catch (err: any) {
       toast.error(`Matching Engine failed: ${err.message}`, { id: toastId });
     } finally {

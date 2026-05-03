@@ -16,7 +16,7 @@ export async function getClients(): Promise<Client[]> {
 }
 
 export async function createClient(data: Partial<Client>) {
-  return safeInsert('clients', {
+  const payload: any = {
     company: data.company || '',
     name: data.name || '',
     email: data.email || '',
@@ -25,10 +25,16 @@ export async function createClient(data: Partial<Client>) {
     industry: data.industry || '',
     budget: data.budget || '',
     contact_person: data.contactPerson || '',
-    website: data.website || '',
     client_code: data.clientCode || '',
     notes: data.notes || '',
-  });
+  };
+
+  // Website might be missing from schema cache if migration failed or is slow
+  if (data.website) {
+    payload.website = data.website;
+  }
+
+  return safeInsert('clients', payload);
 }
 
 export async function updateClient(id: string, updates: Partial<Client>) {

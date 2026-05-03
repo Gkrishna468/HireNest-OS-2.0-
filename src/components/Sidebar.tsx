@@ -53,6 +53,20 @@ const navItems = [
 export function Sidebar() {
   const { signOut, user } = useAuth();
 
+  const filteredNavItems = navItems.filter(item => {
+    if (user?.role === 'recruiter') {
+      const allowed = ['Dashboard', 'AI Matching', 'Jobs', 'Candidates', 'Resumes', 'Sign Out', 'Settings', 'Email Center', 'WhatsApp Business'];
+      // User requested: "client requiremts and ai matching and piples lines and candidates from there company and pipelines"
+      // "client requirements" -> Jobs
+      // "ai matching" -> AI Matching
+      // "candidates" -> Candidates
+      // "pipelines" -> Deal Room (Recruiters need to see deals they are working on)
+      const recruiterAllowed = ['Dashboard', 'AI Matching', 'Jobs', 'Candidates', 'Resumes', 'Deal Room', 'Email Center', 'Settings'];
+      return recruiterAllowed.includes(item.label);
+    }
+    return true;
+  });
+
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-screen sticky top-0 border-r border-slate-800">
       <div className="p-6 flex items-center gap-3">
@@ -63,7 +77,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
-        {navItems.map((item) => (
+        {filteredNavItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}

@@ -27,6 +27,17 @@ CREATE TABLE IF NOT EXISTS profiles (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Fix Profiles table: Rename legacy 'company' column if it exists to 'company_id'
+DO $$ 
+BEGIN 
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='company') THEN
+    -- Only rename if company_id doesn't already exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='company_id') THEN
+      ALTER TABLE profiles RENAME COLUMN company TO company_id;
+    END IF;
+  END IF;
+END $$;
+
 -- 4. Clients (Extended)
 CREATE TABLE IF NOT EXISTS client_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -55,6 +66,14 @@ CREATE TABLE IF NOT EXISTS clients (
   company_id UUID REFERENCES companies(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure website column exists for Clients
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='website') THEN
+    ALTER TABLE clients ADD COLUMN website TEXT;
+  END IF;
+END $$;
 
 -- 4b. Vendors Table (Mirroring Clients for code compatibility)
 CREATE TABLE IF NOT EXISTS vendors (
