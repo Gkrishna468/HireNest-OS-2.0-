@@ -57,7 +57,6 @@ export async function syncGmailInbox() {
       subject: subject,
       snippet: email.snippet,
       body: email.snippet, // In real app, we would parse multipart body
-      received_at: new Date(parseInt(email.internalDate)).toISOString()
     }, { onConflict: 'message_id' });
 
     if (!error) {

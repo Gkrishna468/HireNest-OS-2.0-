@@ -82,7 +82,7 @@ export default function Settings() {
             access_type: 'offline',
             prompt: 'consent'
           },
-          redirectTo: window.location.origin + '/#/email',
+          redirectTo: window.location.origin + '/email',
         },
       });
 
@@ -290,7 +290,7 @@ export default function Settings() {
                       </p>
                       <div className="mt-4 flex items-center gap-3">
                         <code className="px-4 py-2 bg-slate-900 text-indigo-400 rounded-xl text-[10px] font-mono break-all border border-slate-800 select-all">
-                          {window.location.origin}/#/email
+                          {window.location.origin}/email
                         </code>
                         <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest border-b border-amber-300">Copy this exact URL</span>
                       </div>
