@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS candidates (
   name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
+  whatsapp TEXT,
+  website TEXT,
   current_title TEXT,
   skills TEXT[],
   experience TEXT,
@@ -137,6 +139,17 @@ CREATE TABLE IF NOT EXISTS candidates (
   ai_match_score NUMERIC DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure candidates columns exist for leads/automation
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='candidates' AND column_name='whatsapp') THEN
+    ALTER TABLE candidates ADD COLUMN whatsapp TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='candidates' AND column_name='website') THEN
+    ALTER TABLE candidates ADD COLUMN website TEXT;
+  END IF;
+END $$;
 
 -- 7. Collaborations (The Marketplace Meet-point)
 CREATE TABLE IF NOT EXISTS collaborations (
@@ -343,6 +356,36 @@ CREATE TABLE IF NOT EXISTS processing_cache (
 
 ALTER TABLE processing_cache ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Cache access" ON processing_cache FOR ALL USING (true);
+
+-- 17. WhatsApp Business Integration
+CREATE TABLE IF NOT EXISTS whatsapp_chats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone_number TEXT NOT NULL UNIQUE,
+  contact_name TEXT,
+  last_message TEXT,
+  last_activity_at TIMESTAMPTZ DEFAULT NOW(),
+  ai_engagement_mode TEXT DEFAULT 'active', -- passive, active, paused
+  status TEXT DEFAULT 'lead', -- lead, interviewing, placed, noise
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_id UUID REFERENCES whatsapp_chats(id),
+  sender_type TEXT CHECK (sender_type IN ('contact', 'ai', 'user')),
+  content TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT false,
+  status TEXT DEFAULT 'sent', -- sent, delivered, read, failed
+  ai_intent TEXT, -- 'greeting', 'scheduling', 'rejection', 'resume_submission'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE whatsapp_chats ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Chats access" ON whatsapp_chats FOR ALL USING (true);
+
+ALTER TABLE whatsapp_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Messages access" ON whatsapp_messages FOR ALL USING (true);
 
 -- Ensure website column exists for Clients (Re-verifying path from previous turns)
 
