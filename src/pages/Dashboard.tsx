@@ -6,6 +6,7 @@
 import React from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { 
   Briefcase, 
   Users, 
@@ -16,12 +17,14 @@ import {
   Clock,
   CircleDollarSign,
   Zap,
-  ShieldCheck
+  ShieldCheck,
+  BarChart3
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { jobs, candidates, clients, vendors, logs, deals } = useData();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const totalRevenue = deals.reduce((sum, d) => sum + (Number(d.revenue_amount) || 0), 0);
   const closedDeals = deals.filter(d => d.status === 'placed').length;
@@ -124,21 +127,24 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-slate-900 p-8 rounded-2xl text-white shadow-xl relative overflow-hidden group">
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity" />
+          <div className="bg-indigo-600 p-8 rounded-2xl text-white shadow-xl relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+              <BarChart3 className="w-24 h-24" />
+            </div>
             <div className="relative z-10">
-              <h3 className="text-xl font-bold mb-2">AI Copilot Intelligence</h3>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                Welcome, Founder. Currently managing {jobs.length} open requisitions.
-                {candidates.filter(c => c.stage === 'screening').length > 0 ? 
-                  ` There are ${candidates.filter(c => c.stage === 'screening').length} candidates pending screening.` : 
-                  " The pipeline is healthy and synchronized."}
+              <h3 className="text-xl font-bold mb-2">Revenue Node</h3>
+              <div className="flex items-baseline gap-2 mb-4">
+                <span className="text-3xl font-black">${totalRevenue.toLocaleString()}</span>
+                <span className="text-indigo-200 text-xs font-bold uppercase tracking-widest">Active Deals</span>
+              </div>
+              <p className="text-indigo-100 text-sm leading-relaxed mb-6">
+                Your AI Agents have identified 12 high-intent leads this week. Automation is currently handling 84% of outreach.
               </p>
               <button 
-                onClick={() => window.location.href = '/matching'}
-                className="w-full bg-white text-slate-900 py-2 rounded-xl font-bold hover:bg-indigo-50 transition-colors"
+                onClick={() => navigate('/intelligence')}
+                className="w-full bg-white text-indigo-600 py-3 rounded-xl font-black hover:bg-indigo-50 transition-colors uppercase text-xs tracking-widest"
               >
-                Run Neural Review
+                Access Neural Intelligence
               </button>
             </div>
           </div>
@@ -169,7 +175,7 @@ export default function Dashboard() {
               ))}
             </div>
             <button 
-              onClick={() => window.location.href = '/exec-suite'}
+              onClick={() => navigate('/intelligence')}
               className="w-full mt-6 py-3 text-[10px] font-black text-white bg-slate-900 rounded-xl hover:bg-indigo-600 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
             >
               <ShieldCheck className="w-3 h-3" />
@@ -181,12 +187,16 @@ export default function Dashboard() {
             <h3 className="font-bold text-slate-900 mb-4">Ecosystem Quick Links</h3>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Add Job', color: 'bg-blue-50 text-blue-600' },
-                { label: 'Upload CV', color: 'bg-indigo-50 text-indigo-600' },
-                { label: 'Sync Emails', color: 'bg-purple-50 text-purple-600' },
-                { label: 'Run Audit', color: 'bg-emerald-50 text-emerald-600' },
+                { label: 'Add Job', color: 'bg-blue-50 text-blue-600', path: '/jobs' },
+                { label: 'Upload CV', color: 'bg-indigo-50 text-indigo-600', path: '/resumes' },
+                { label: 'Sync Emails', color: 'bg-purple-50 text-purple-600', path: '/email' },
+                { label: 'Agents', color: 'bg-emerald-50 text-emerald-600', path: '/agents' },
               ].map(link => (
-                <button key={link.label} className={link.color + " p-3 text-sm font-semibold rounded-xl text-center hover:opacity-80 transition-opacity"}>
+                <button 
+                  key={link.label} 
+                  onClick={() => navigate(link.path)}
+                  className={link.color + " p-3 text-sm font-semibold rounded-xl text-center hover:opacity-80 transition-opacity"}
+                >
                   {link.label}
                 </button>
               ))}

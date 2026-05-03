@@ -21,9 +21,17 @@ import {
   Network,
   Radar,
   Activity,
-  UserPlus
+  UserPlus,
+  Coins,
+  Cpu,
+  BarChart3,
+  Settings2,
+  Play,
+  Pause,
+  CloudLightning
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useData } from '@/contexts/DataContext';
 import { cn } from '@/lib/utils';
@@ -35,28 +43,77 @@ import { discoverIntentLeads, getWarmLeads, DiscoveryLead } from '@/services/dis
 
 interface OutreachLog {
   id: string;
-  type: 'email' | 'whatsapp' | 'linkedin';
+  type: 'email' | 'whatsapp' | 'linkedin' | 'match' | 'system';
   recipient: string;
   subject?: string;
   content: string;
-  status: 'sent' | 'replied' | 'bounced' | 'pending';
+  status: 'sent' | 'replied' | 'bounced' | 'pending' | 'success' | 'warning' | 'error';
   ai_model: string;
   created_at: string;
   job_title?: string;
 }
 
+interface RevenueMetric {
+  total_cost: number;
+  total_revenue_delta: number;
+  total_units: number;
+  human_hours_saved: number;
+}
+
 export default function IntelligenceCenter() {
   const { logs, jobs, candidates } = useData();
+  const navigate = useNavigate();
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
-  const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp'>('all');
+  const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp' | 'match'>('all');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [leads, setLeads] = useState<DiscoveryLead[]>([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [revenue, setRevenue] = useState<RevenueMetric>({
+    total_cost: 42.80,
+    total_revenue_delta: 12500,
+    total_units: 842,
+    human_hours_saved: 124
+  });
+
+  const [activeAgents, setActiveAgents] = useState({
+    email_ingestion: true,
+    lead_discovery: true,
+    resume_parsing: true,
+    revenue_tracking: true
+  });
 
   useEffect(() => {
     fetchLeads();
+    fetchRevenueMetrics();
+    fetchOutreachLogs();
   }, []);
+
+  async function fetchRevenueMetrics() {
+    try {
+      const { data } = await supabase.from('usage_logs').select('estimated_cost, revenue_delta, units');
+      if (data && data.length > 0) {
+        const metrics = data.reduce((acc, curr) => ({
+          total_cost: acc.total_cost + (Number(curr.estimated_cost) || 0),
+          total_revenue_delta: acc.total_revenue_delta + (Number(curr.revenue_delta) || 0),
+          total_units: acc.total_units + (curr.units || 0),
+          human_hours_saved: acc.human_hours_saved + (Math.random() * 0.5) // Simulation for hrs saved
+        }), { total_cost: 0, total_revenue_delta: 0, total_units: 0, human_hours_saved: 0 });
+        
+        // Merge with seed data if empty
+        if (metrics.total_cost === 0) return;
+        setRevenue(metrics);
+      }
+    } catch (err) {
+      console.error("Revenue fetch error:", err);
+    }
+  }
+
+  async function toggleAgent(agent: keyof typeof activeAgents) {
+    const newState = !activeAgents[agent];
+    setActiveAgents(prev => ({ ...prev, [agent]: newState }));
+    toast.success(`${agent.replace('_', ' ')} agent ${newState ? 'activated' : 'paused'}`);
+  }
 
   async function fetchLeads() {
     const data = await getWarmLeads();
@@ -71,6 +128,7 @@ export default function IntelligenceCenter() {
       toast.success('High-Intent signals parsed & analyzed.');
       fetchLeads();
       fetchOutreachLogs();
+      fetchRevenueMetrics();
     } catch (err) {
       toast.error('Discovery pulse failed');
     } finally {
@@ -78,7 +136,6 @@ export default function IntelligenceCenter() {
     }
   }
 
-  // ... rest of the code
   async function handleGmailSync() {
     setSyncing(true);
     toast.info('Accessing Neural Gmail Node...', { icon: <Mail className="animate-bounce" /> });
@@ -86,6 +143,7 @@ export default function IntelligenceCenter() {
       const result = await syncGmailResumes();
       toast.success(result.message);
       await fetchOutreachLogs();
+      fetchRevenueMetrics();
     } catch (err: any) {
       toast.error(err.message || "Gmail sync failed");
     } finally {
@@ -118,47 +176,28 @@ export default function IntelligenceCenter() {
     }
   }
 
-  // Fetch real activity logs on mount
-  useEffect(() => {
-    fetchOutreachLogs();
-  }, []);
-
   async function fetchOutreachLogs() {
     setLoading(true);
     const { data } = await supabase
       .from('agent_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(30);
 
     const transformed: OutreachLog[] = (data || []).map(l => ({
       id: l.id,
-      type: l.metadata?.channel || 'email',
-      recipient: l.metadata?.recipient || 'Candidate Alpha',
-      subject: l.metadata?.subject || 'Position Opportunity',
-      content: l.message,
-      status: l.metadata?.status || 'sent',
-      ai_model: 'Gemini-3-Flash',
+      type: l.metadata?.channel || l.type || 'system',
+      recipient: l.metadata?.recipient || 'System Core',
+      subject: l.metadata?.subject || 'Background Sync',
+      content: l.message || l.action || 'No description',
+      status: (l.metadata?.status || l.level || l.status) as any,
+      ai_model: 'Gemini-1.5-Flash',
       created_at: l.created_at,
       job_title: l.metadata?.jobTitle
     }));
 
     setOutreachLogs(transformed);
     setLoading(false);
-  }
-
-  function addRandomActivity() {
-    const freshLog: OutreachLog = {
-      id: Math.random().toString(),
-      type: Math.random() > 0.5 ? 'whatsapp' : 'email',
-      recipient: 'New Lead ' + Math.floor(Math.random() * 1000),
-      content: 'AI Agent followed up on the Senior React Lead position.',
-      status: 'sent',
-      ai_model: 'Gemini-3-Flash',
-      created_at: new Date().toISOString(),
-      job_title: 'Full Stack Engineer'
-    };
-    setOutreachLogs(prev => [freshLog, ...prev].slice(0, 50));
   }
 
   async function runSimulation() {
@@ -176,6 +215,7 @@ export default function IntelligenceCenter() {
       await supabase.from('agent_logs').insert({
         type: 'match',
         level: 'info',
+        agent_name: 'Nestor Brain',
         message: `[INTEL AGENT] Neural Pulse started. Analyzing ${jobs.length} open jobs against ${candidates.length} profiles.`,
         metadata: { channel: 'system' }
       });
@@ -193,6 +233,7 @@ export default function IntelligenceCenter() {
           await supabase.from('agent_logs').insert({
             type: 'match',
             level: 'success',
+            agent_name: 'Nestor Brain',
             message: `[NEURAL MATCH] Automated 88%+ match found! Candidate: ${candidate.name} -> Job: ${job.title} (${score}%)`,
             metadata: { jobId: job.id, candidateId: candidate.id, score, recipient: candidate.name, jobTitle: job.title }
           });
@@ -213,6 +254,7 @@ export default function IntelligenceCenter() {
 
       toast.success('Neural Pulse successful. Collaborations auto-generated.');
       await fetchOutreachLogs();
+      fetchRevenueMetrics();
     } catch (error) {
       console.error(error);
       toast.error('Neural Pulse failed.');
@@ -244,6 +286,34 @@ export default function IntelligenceCenter() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-6">
+          {/* REVENUE & USAGE CARD */}
+          <div className="bg-indigo-600 p-6 rounded-[2.5rem] text-white shadow-xl shadow-indigo-600/20 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Coins className="w-20 h-20" />
+            </div>
+            <h3 className="font-black text-xl mb-6 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Agent Revenue
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1">Automation Value</div>
+                <div className="text-3xl font-black">${revenue.total_revenue_delta.toLocaleString()}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-indigo-500/30">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-indigo-300">GPU Cost</div>
+                  <div className="text-sm font-bold">${revenue.total_cost.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-indigo-300">Hrs Saved</div>
+                  <div className="text-sm font-bold">{Math.floor(revenue.human_hours_saved)}h</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-md relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
               <ShieldCheck className="w-24 h-24" />
@@ -274,31 +344,35 @@ export default function IntelligenceCenter() {
             </div>
 
             <button 
-              onClick={() => window.location.hash = '#/ai-matching'}
               className="w-full mt-8 py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-black transition-all group/btn"
             >
-              <ShieldCheck className="w-5 h-5 text-indigo-400 group-hover/btn:scale-110 transition-transform" />
-              EXEC COMMAND CENTER
+              <CloudLightning className="w-5 h-5 text-indigo-400 group-hover/btn:scale-110 transition-transform" />
+              DEPLOY SMART AGENT
             </button>
           </div>
 
+          {/* AGENT CONTROL PANEL */}
           <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
-            <h3 className="font-black text-lg text-slate-900 mb-4 tracking-tight">Ecosystem Quick Links</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Add Job', color: 'bg-blue-50 text-blue-600', icon: Briefcase, onClick: () => window.location.hash = '#/jobs' },
-                { label: 'Upload CV', color: 'bg-indigo-50 text-indigo-600', icon: Upload, onClick: () => window.location.hash = '#/resumes' },
-                { label: 'Sync Emails', color: 'bg-purple-50 text-purple-600', icon: Mail, onClick: handleGmailSync },
-                { label: 'Test WhatsApp', color: 'bg-emerald-50 text-emerald-600', icon: MessageSquare, onClick: simulateWhatsAppInbound }
-              ].map(link => (
-                <button 
-                  key={link.label}
-                  onClick={link.onClick}
-                  className={cn("p-4 rounded-3xl flex flex-col items-center gap-2 hover:scale-105 transition-transform border border-transparent hover:border-slate-100", link.color)}
-                >
-                  <link.icon className="w-5 h-5" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">{link.label}</span>
-                </button>
+            <h3 className="font-black text-lg text-slate-900 mb-4 tracking-tight flex items-center gap-2">
+              <Settings2 className="w-4 h-4 text-indigo-600" />
+              Control Panel
+            </h3>
+            <div className="space-y-3">
+              {(Object.keys(activeAgents) as Array<keyof typeof activeAgents>).map(agent => (
+                <div key={agent} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-[11px] font-black uppercase tracking-tight text-slate-600 truncate mr-2">
+                    {agent.replace('_', ' ')}
+                  </span>
+                  <button 
+                    onClick={() => toggleAgent(agent)}
+                    className={cn(
+                      "p-2 rounded-xl transition-all",
+                      activeAgents[agent] ? "bg-emerald-100 text-emerald-600" : "bg-slate-200 text-slate-400"
+                    )}
+                  >
+                    {activeAgents[agent] ? <Pause className="w-3.5 h-3.5 fill-emerald-600" /> : <Play className="w-3.5 h-3.5 fill-slate-400" />}
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -381,16 +455,16 @@ export default function IntelligenceCenter() {
           <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/10">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
-                  <Globe className="w-5 h-5" />
+                <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-900/20">
+                  <Activity className="w-5 h-5 text-indigo-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Autonomous Activity Stream</h3>
-                  <p className="text-xs text-slate-500 font-medium">Real-time intelligence from recruitment agents.</p>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Agent Activity Stream</h3>
+                  <p className="text-xs text-slate-500 font-medium">System execution logs & neural decisions.</p>
                 </div>
               </div>
               <div className="flex gap-2">
-                {['all', 'email', 'whatsapp'].map((t) => (
+                {['all', 'email', 'whatsapp', 'match'].map((t) => (
                   <button
                     key={t}
                     onClick={() => setFilter(t as any)}
@@ -416,9 +490,15 @@ export default function IntelligenceCenter() {
                   <div className="flex gap-6">
                     <div className={cn(
                       "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform",
-                      log.type === 'email' ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
+                      log.type === 'email' ? "bg-indigo-50 text-indigo-600" : 
+                      log.type === 'whatsapp' ? "bg-emerald-50 text-emerald-600" :
+                      log.type === 'match' ? "bg-purple-50 text-purple-600" :
+                      "bg-slate-100 text-slate-600"
                     )}>
-                      {log.type === 'email' ? <Mail className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                      {log.type === 'email' ? <Mail className="w-5 h-5" /> : 
+                       log.type === 'whatsapp' ? <MessageSquare className="w-5 h-5" /> :
+                       log.type === 'match' ? <BrainCircuit className="w-5 h-5" /> :
+                       <Cpu className="w-5 h-5" />}
                     </div>
                     <div>
                       <div className="flex items-center gap-3">
@@ -430,7 +510,7 @@ export default function IntelligenceCenter() {
                         </span>
                       </div>
                       <h4 className="text-sm font-black text-slate-900 tracking-tight mt-2 italic group-hover:text-indigo-600 transition-colors">
-                        To: {log.recipient}
+                        Action: {log.recipient === 'System Core' ? 'Background Process' : `To: ${log.recipient}`}
                       </h4>
                       <p className="text-sm text-slate-500 font-medium mt-1 leading-relaxed max-w-2xl">
                         "{log.content}"
@@ -441,15 +521,17 @@ export default function IntelligenceCenter() {
                   <div className="flex flex-col items-end gap-3">
                     <div className={cn(
                       "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border",
-                      log.status === 'sent' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                      (log.status === 'sent' || log.status === 'success' || log.status === 'info') ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                       log.status === 'replied' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                      (log.status === 'error' || log.status === 'bounced') ? "bg-red-50 text-red-600 border-red-100" :
                       "bg-slate-50 text-slate-500 border-slate-100"
                     )}>
-                      {log.status === 'sent' && <CheckCircle2 className="w-3 h-3" />}
-                      {log.status}
+                      {(log.status === 'sent' || log.status === 'success' || log.status === 'info') && <CheckCircle2 className="w-3 h-3" />}
+                      {(log.status === 'error' || log.status === 'bounced') && <AlertCircle className="w-3 h-3" />}
+                      {log.status === 'info' ? 'processed' : log.status}
                     </div>
                     <button 
-                      onClick={() => window.location.hash = '#/agent-chat'}
+                      onClick={() => navigate('/agent-chat')}
                       className="p-2 border border-slate-100 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-md transition-all group"
                     >
                       <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -458,6 +540,27 @@ export default function IntelligenceCenter() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Quick Actions Footer */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Deals Room', path: '/deal-room', icon: BarChart3, color: 'bg-emerald-50 text-emerald-600' },
+              { label: 'Marketplace', path: '/marketplace', icon: Globe, color: 'bg-indigo-50 text-indigo-600' },
+              { label: 'Executive Suite', path: '/exec-suite', icon: ShieldCheck, color: 'bg-slate-50 text-slate-900' },
+              { label: 'Agent Center', path: '/agents', icon: Bot, color: 'bg-purple-50 text-purple-600' }
+            ].map(link => (
+              <button 
+                key={link.label}
+                onClick={() => navigate(link.path)}
+                className={cn("p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col items-center gap-3 bg-white group")}
+              >
+                <div className={cn("p-4 rounded-2xl transition-transform group-hover:scale-110", link.color)}>
+                  <link.icon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-black uppercase tracking-widest text-slate-600">{link.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>

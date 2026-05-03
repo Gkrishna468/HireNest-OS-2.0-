@@ -415,5 +415,46 @@ CREATE POLICY "Chats access" ON whatsapp_chats FOR ALL USING (true);
 ALTER TABLE whatsapp_messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Messages access" ON whatsapp_messages FOR ALL USING (true);
 
+-- Ensure agent_logs has all autonomous agency columns
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='agent_name') THEN
+    ALTER TABLE agent_logs ADD COLUMN agent_name TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='status') THEN
+    ALTER TABLE agent_logs ADD COLUMN status TEXT DEFAULT 'success';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='execution_time_ms') THEN
+    ALTER TABLE agent_logs ADD COLUMN execution_time_ms INT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='input') THEN
+    ALTER TABLE agent_logs ADD COLUMN input JSONB;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='decision') THEN
+    ALTER TABLE agent_logs ADD COLUMN decision JSONB;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='action') THEN
+    ALTER TABLE agent_logs ADD COLUMN action TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='result') THEN
+    ALTER TABLE agent_logs ADD COLUMN result JSONB;
+  END IF;
+END $$;
+
+-- 18. Usage & Revenue Logs
+CREATE TABLE IF NOT EXISTS usage_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  action_type TEXT, -- 'ai_process', 'email_sync', 'lead_gen'
+  units INT DEFAULT 1,
+  estimated_cost NUMERIC(10,4) DEFAULT 0,
+  revenue_delta NUMERIC(10,2) DEFAULT 0, -- Estimated value generated
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE usage_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Usage access" ON usage_logs FOR ALL USING (true);
+
 -- Ensure website column exists for Clients (Re-verifying path from previous turns)
 
