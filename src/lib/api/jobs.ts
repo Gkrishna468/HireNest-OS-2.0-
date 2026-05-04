@@ -29,7 +29,7 @@ export async function createJob(data: Partial<Job>) {
     approval_status: 'pending',
     client_id: data.clientId,
     client_name: data.clientName,
-    vendor_name: data.vendorName,
+    // vendor_name: data.vendorName, // Temporarily disabled due to missing DB column
   });
 }
 
@@ -47,7 +47,7 @@ export async function updateJob(jobId: string, data: Partial<Job>) {
     approval_status: data.approvalStatus,
     client_id: data.clientId,
     client_name: data.clientName,
-    vendor_name: data.vendorName,
+    // vendor_name: data.vendorName, // Temporarily disabled due to missing DB column
     updated_at: new Date().toISOString(),
   });
 }

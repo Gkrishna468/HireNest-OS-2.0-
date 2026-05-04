@@ -39,7 +39,7 @@ import { broadcastJob } from '@/services/marketplaceService';
 
 export default function Jobs() {
   const { user } = useAuth();
-  const { jobs, loading, approveJobWithBudget, addJob, updateJob, deleteJob, clients, userProfile } = useData();
+  const { jobs, loading, approveJobWithBudget, addJob, updateJob, deleteJob, clients, vendors, userProfile } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -481,6 +481,20 @@ export default function Jobs() {
                 </select>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Assigned Vendor</label>
+                <select
+                  value={newJob.vendorName}
+                  onChange={(e) => setNewJob({...newJob, vendorName: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                >
+                  <option value="">No vendor (Internal)</option>
+                  {safeArray(vendors).map(v => (
+                    <option key={v.id} value={v.company || v.name}>{v.company || v.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-2 md:col-span-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Skills (comma separated)</label>
                 <input
@@ -759,13 +773,17 @@ export default function Jobs() {
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Vendor / Agency</label>
                 <div className="relative">
-                  <input
-                    type="text"
+                  <select
                     value={editJob.vendorName || ''}
                     onChange={(e) => setEditJob({...editJob, vendorName: e.target.value})}
-                    placeholder="Specify vendor if outsourced"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium placeholder:text-slate-300"
-                  />
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                  >
+                    <option value="">Select Vendor / Agency</option>
+                    {safeArray(vendors).map((v: any) => (
+                      <option key={v.id} value={v.company || v.name}>{v.company || v.name} ({v.vendorCode || 'VEN'})</option>
+                    ))}
+                    <option value="internal">Internal Team</option>
+                  </select>
                   <Zap className="absolute left-3 top-3 w-4 h-4 text-orange-400" />
                 </div>
               </div>
