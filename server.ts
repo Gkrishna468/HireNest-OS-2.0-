@@ -106,7 +106,7 @@ async function startServer() {
 
         // 2. BRAIN: CONTEXT-AWARE REPLY
         // Fetch candidate details if exists
-        const { data: candidate } = await supabase.from('candidates').select('*').eq('phone', from).single();
+        const { data: candidate } = await supabase.from('candidates').select('*').eq('phone', from).maybeSingle();
         
         const context = candidate 
           ? `The sender is Candidate ${candidate.name} (Match Score ${candidate.ai_match_score}%). They are currently in ${candidate.stage} stage.`

@@ -35,7 +35,7 @@ export async function syncGmailInbox() {
 
   for (const msg of listData.messages) {
     // Check cache
-    const { data: exist } = await supabase.from('processing_cache').select('id').eq('source_id', msg.id).single();
+    const { data: exist } = await supabase.from('processing_cache').select('id').eq('source_id', msg.id).maybeSingle();
     if (exist) continue;
 
     const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`;
@@ -93,7 +93,7 @@ export async function syncGmailResumes() {
   let extractedCount = 0;
 
   for (const msg of listData.messages.slice(0, 5)) {
-    const { data: exist } = await supabase.from('processing_cache').select('id').eq('source_id', msg.id + '_resume').single();
+    const { data: exist } = await supabase.from('processing_cache').select('id').eq('source_id', msg.id + '_resume').maybeSingle();
     if (exist) continue;
 
     const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`;

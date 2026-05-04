@@ -59,7 +59,7 @@ async function handleGmailIngress(jobId: string, payload: any) {
       .from('profiles')
       .select('*')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     if (!profile) throw new Error(`Profile not found for ${email}`);
 
