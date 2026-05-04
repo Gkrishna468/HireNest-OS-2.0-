@@ -7,32 +7,42 @@ export default function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    async function handleCallback() {
-      // Supabase handles the hash fragment automatically in the client
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Auth callback error:', error);
-        toast.error('Authentication failed. Returning to login.');
-        navigate('/login');
-        return;
-      }
+    const handleAuth = async () => {
+      try {
+        // Supabase handles the hash fragment, but we can also be explicit
+        const { data, error } = await supabase.auth.getSession();
 
-      if (session) {
-        toast.success('Successfully authenticated with HireNest OS');
-        navigate('/');
-      } else {
-        // Checking if we are just in a middle state
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          navigate('/');
+        if (error) throw error;
+
+        if (data.session) {
+          toast.success('Neural Link Established.');
+          // Redirect to email if that's where they were headed, or dashboard
+          navigate('/email');
         } else {
-          navigate('/login');
+          // If no session, wait a bit or try to refresh
+          const { data: userRes } = await supabase.auth.getUser();
+          if (userRes.user) {
+            navigate('/email');
+          } else {
+            console.warn("No session found in callback");
+            // Only redirect if we've waited a bit
+            const timeout = setTimeout(() => navigate('/login'), 2000);
+            return () => clearTimeout(timeout);
+          }
+        }
+      } catch (err: any) {
+        console.error("Auth error:", err);
+        toast.error("Auth failed: " + err.message);
+        navigate('/login');
+      } finally {
+        // CLEAN UP: Scrub tokens from URL immediately
+        if (window.location.hash.includes('access_token')) {
+          window.history.replaceState(null, '', '/');
         }
       }
-    }
+    };
 
-    handleCallback();
+    handleAuth();
   }, [navigate]);
 
   return (

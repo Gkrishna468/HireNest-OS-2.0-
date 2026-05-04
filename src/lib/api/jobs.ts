@@ -16,7 +16,7 @@ export async function getJobs(): Promise<Job[]> {
 }
 
 export async function createJob(data: Partial<Job>) {
-  return safeInsert('jobs', {
+  const payload: any = {
     title: data.title || '',
     description: data.description || '',
     location: data.location || '',
@@ -29,12 +29,23 @@ export async function createJob(data: Partial<Job>) {
     approval_status: 'pending',
     client_id: data.clientId,
     client_name: data.clientName,
-    // vendor_name: data.vendorName, // Temporarily disabled due to missing DB column
-  });
+  };
+
+  if (data.vendorName) payload.vendor_name = data.vendorName;
+
+  try {
+    return await safeInsert('jobs', payload);
+  } catch (err: any) {
+    if (err.message?.includes('vendor_name')) {
+      delete payload.vendor_name;
+      return await safeInsert('jobs', payload);
+    }
+    throw err;
+  }
 }
 
 export async function updateJob(jobId: string, data: Partial<Job>) {
-  return safeUpdate('jobs', jobId, {
+  const payload: any = {
     title: data.title,
     description: data.description,
     location: data.location,
@@ -47,9 +58,25 @@ export async function updateJob(jobId: string, data: Partial<Job>) {
     approval_status: data.approvalStatus,
     client_id: data.clientId,
     client_name: data.clientName,
-    // vendor_name: data.vendorName, // Temporarily disabled due to missing DB column
     updated_at: new Date().toISOString(),
-  });
+  };
+
+  // Only include vendor_name if it was provided and we want to try it
+  // We wrap this in a protective layer because some schemas might be missing this column
+  if (data.vendorName) {
+    payload.vendor_name = data.vendorName;
+  }
+
+  try {
+    return await safeUpdate('jobs', jobId, payload);
+  } catch (err: any) {
+    if (err.message?.includes('vendor_name')) {
+      console.warn("DB Schema Alert: 'vendor_name' column missing. Saving without vendor assignment.");
+      delete payload.vendor_name;
+      return await safeUpdate('jobs', jobId, payload);
+    }
+    throw err;
+  }
 }
 
 export async function deleteJob(jobId: string) {
