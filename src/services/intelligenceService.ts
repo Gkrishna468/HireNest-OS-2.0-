@@ -92,17 +92,19 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
  */
 export async function extractJobSkills(jdText: string): Promise<string[]> {
   const prompt = `
-    Extract ONLY a comma-separated list of technical skills and tools from this Job Description.
+    Extract ONLY a clean list of technical skills and tools from this Job Description.
     Focus on niche technologies and core frameworks.
     Ignore soft skills.
+    Return as a simple JSON array: ["skill1", "skill2"]
     JD: ${jdText}
-    Return ONLY the list.
   `;
   try {
     const raw = await callAISecureProxy(prompt);
-    return raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const clean = raw.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
   } catch (e) {
-    return [];
+    // Fallback: simple split if AI fails or returns weird format
+    return jdText.split(/[,;\n]/).map(s => s.trim().toLowerCase()).filter(s => s.length > 2 && s.length < 50);
   }
 }
 
@@ -112,44 +114,43 @@ function normalize(text: string) {
 
 function fuzzyMatch(skill: string, candidateSkills: string[]) {
   const normSkill = normalize(skill);
-  return candidateSkills.some(cs =>
-    normalize(cs).includes(normSkill) || normSkill.includes(normalize(cs))
-  );
+  return candidateSkills.some(cs => {
+    const normCs = normalize(cs);
+    return normCs.includes(normSkill) || normSkill.includes(normCs);
+  });
 }
 
 /**
  * Neural Matcher: Semantic comparison between Job and Candidate.
- * Includes a fallback logic if AI fails.
+ * Strategic Weights: 60% Skills, 20% Experience, 20% Semantic Alignment.
  */
 export async function scoreCandidateForJob(job: any, candidate: any): Promise<MatchResult> {
   const jobSkills = (job.skills || []).map(normalize);
   const candSkills = (candidate.skills || []).map(normalize);
+  
+  // High-fidelity heuristic pre-score
+  const matched = jobSkills.filter(s => fuzzyMatch(s, candSkills));
+  const skillScore = jobSkills.length > 0 ? (matched.length / jobSkills.length) * 100 : 0;
+  const expMatch = candidate.experience >= (job.min_experience || 0) ? 100 : 60;
 
   const prompt = `
-    Act as a Senior Strategic Recruitment Director & Technical QA Chief. Perform a deep neural match on PURELY Technical Skills (70%) and relevant Experience/Tenure (30%).
-    IGNORE location, phone, email, and candidate names. Be strict about niche skills mentioned in the JD.
+    Act as a Senior Strategic Recruitment Director & Technical QA Chief. Perform a deep neural match.
+    JOB: ${job.title} | Critical Skills: ${jobSkills.join(", ")}
+    CANDIDATE: ${candSkills.join(", ")} | Exp: ${candidate.experience}
     
-    JOB REQUISITION:
-    - Title: ${job.title}
-    - Critical Niche Skills: ${jobSkills.join(", ")}
-    - Core Technical Responsibilities: ${job.description}
-    
-    CANDIDATE PROFILE:
-    - Current/Recent Role: ${candidate.currentTitle || candidate.current_title}
-    - Declared Technical Skills: ${candSkills.join(", ")}
-    - Career Summary/Experience: ${candidate.summary || candidate.experience}
+    Heuristic Pre-Score: ${Math.round(skillScore)}% skill match.
     
     YOUR TASK:
-    1. Calculate a conservative score (0-100). If niche skills are missing, the score MUST be below 70.
-    2. Provide a 'Strategic Reasoning' (approx 3 sentences) explaining the technical overlap.
-    3. Identify 3-5 specific 'Gaps'. Mention EXACT missing skills from the JD.
-    4. Categorize recommending as Shortlist.
+    1. Calculate a Final Neural Score (0-100). 
+    2. Provide 'Strategic Reasoning' explaining tech overlap.
+    3. Identify EXACT 'Gaps' from the JD.
+    4. Recommendation: 'shortlist' or 'reserve'.
 
-    Return ONLY a structural JSON object:
+    Return JSON:
     {
       "score": number,
       "reasoning": "string",
-      "gaps": ["Detailed technical gap 1", "Specific experience mismatch 2"],
+      "gaps": ["string"],
       "recommendation": "shortlist"
     }
   `;
@@ -157,25 +158,28 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
   try {
     const jsonString = await callAISecureProxy(prompt);
     const cleanJson = jsonString.replace(/```json|```/g, "").trim();
-    return JSON.parse(cleanJson);
-  } catch (error) {
-    console.error("AI Matching Error, triggering fallback:", error);
+    const result = JSON.parse(cleanJson);
     
-    // HEURISTIC FALLBACK (Rule-based matching)
-    if (jobSkills.length === 0 || candSkills.length === 0) {
-      return { score: 10, reasoning: "Insufficient data for neural match.", gaps: ["Missing skill metadata"], recommendation: 'reserve' as any };
-    }
-
-    const matched = jobSkills.filter(s => fuzzyMatch(s, candSkills));
-    const skillScore = Math.round((matched.length / jobSkills.length) * 100);
-    const missing = jobSkills.filter(s => !matched.includes(s));
-
+    // Balanced Score: AI judgment mixed with hard heuristic to prevent halluciations or overly strict filters
+    const finalScore = Math.round((result.score * 0.5) + (skillScore * 0.4) + (expMatch * 0.1));
+    
+    return {
+      ...result,
+      score: finalScore,
+      matchedSkills: matched,
+      missingSkills: jobSkills.filter(s => !matched.includes(s))
+    } as any;
+  } catch (error) {
+    console.error("AI Matching Error, triggering heuristic fallback:", error);
+    
     return { 
-      score: skillScore, 
-      reasoning: `Match based on ${matched.length} key skill overlaps: [${matched.join(', ')}].`, 
-      gaps: missing.length > 0 ? [`Missing: ${missing.slice(0, 3).join(', ')}`] : ["Experience verification needed"],
-      recommendation: skillScore >= 70 ? 'shortlist' : 'reserve' as any
-    };
+      score: Math.round(skillScore * 0.8 + expMatch * 0.2), 
+      reasoning: `Matched ${matched.length} key technical nodes.`, 
+      gaps: jobSkills.filter(s => !matched.includes(s)),
+      recommendation: skillScore >= 50 ? 'shortlist' : 'reserve',
+      matchedSkills: matched,
+      missingSkills: jobSkills.filter(s => !matched.includes(s))
+    } as any;
   }
 }
 
