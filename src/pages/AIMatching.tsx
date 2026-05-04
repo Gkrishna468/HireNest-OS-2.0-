@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
-import { scoreCandidateForJob } from '@/services/intelligenceService';
+import { scoreCandidateForJob, generateInterviewQuestions, getHiringPrediction } from '@/services/intelligenceService';
 import { processResumes } from '@/services/resumeService';
 import { safeArray, safeString } from '@/utils/safe';
 import { toast } from 'sonner';
@@ -160,23 +160,39 @@ export default function AIMatching() {
   };
 
   const handleShortlist = async (match: any) => {
-    const toastId = toast.loading('Adding to Shortlist Pipeline...');
+    const toastId = toast.loading('ORCHESTRATING NEURAL AGENTS...');
     try {
+      // 1. Trigger AI Interviewer Agent
+      const interviewAgent = await generateInterviewQuestions(selectedJob, match, match);
+      
+      // 2. Trigger AI Sales Agent
+      const salesPrediction = await getHiringPrediction(selectedJob, match, match);
+
+      // 3. Save to multi-agent pipeline
       const { error } = await supabase.from('shortlist').insert({
         job_id: selectedJob.id,
-        candidate_id: match.id,
+        candidate_id: String(match.id),
         score: match.score,
+        interview_score: salesPrediction.offer_success, // Using offer success as proxy for readiness
+        hiring_probability: salesPrediction.hiring_probability,
+        offer_success_score: salesPrediction.offer_success,
         stage: 'shortlisted',
         reason: match.reasoning,
+        prediction_summary: salesPrediction.summary,
         matched_skills: match.matchedSkills,
         missing_skills: match.missingSkills,
-        source: match.source
+        source: match.source,
+        ai_metadata: {
+          risk_level: salesPrediction.risk_level,
+          interview_questions: interviewAgent
+        }
       });
 
       if (error) throw error;
-      toast.success(`${match.name} moved to pipeline!`, { id: toastId });
+      toast.success(`${match.name} finalized in Pipeline. Agents: Sourcing, Interview, Sales [SYNCED]`, { id: toastId });
     } catch (err) {
-      toast.error('Failed to shortlist candidate', { id: toastId });
+      console.error(err);
+      toast.error('Neural coordination failed', { id: toastId });
     }
   };
 

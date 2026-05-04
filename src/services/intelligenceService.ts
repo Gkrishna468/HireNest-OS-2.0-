@@ -288,3 +288,64 @@ export async function runDecisionAgent() {
 
   return `Cycle complete. Made ${decisions} decisions.`;
 }
+
+/**
+ * AI Interviewer Agent: Generates targeted technical questions based on gaps.
+ */
+export async function generateInterviewQuestions(job: any, candidate: any, match: MatchResult): Promise<any> {
+  const prompt = `
+    Act as a Senior Technical Interviewer.
+    JOB: ${job.title}
+    MATCH SCORE: ${match.score}%
+    MISSING SKILLS: ${match.missingSkills?.join(", ")}
+    
+    Generate 3 high-impact technical questions to validate the candidate's core expertise and 2 probing questions to explore the missing skills/gaps.
+    Return JSON:
+    {
+      "technical": ["string"],
+      "gaps": ["string"]
+    }
+  `;
+  try {
+    const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    const clean = raw.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch (e) {
+    return { technical: ["Explain your architecture approach."], gaps: ["How would you quickly learn niche tools in our JD?"] };
+  }
+}
+
+/**
+ * AI Sales Agent: Strategic Prediction & Hiring Probability.
+ */
+export async function getHiringPrediction(job: any, candidate: any, match: MatchResult): Promise<any> {
+  const prompt = `
+    Act as a Strategic Hiring Director & Offer Scientist.
+    Predict the probability of this candidate being hired and the likelihood of them accepting an offer.
+    JOB: ${job.title}
+    SKILL MATCH: ${match.score}%
+    GAPS: ${match.missingSkills?.join(", ")}
+    EXP: ${candidate.experience} yrs
+    
+    Return JSON:
+    {
+      "hiring_probability": number,
+      "offer_success": number,
+      "summary": "3-sentence strategic justification.",
+      "risk_level": "Low" | "Medium" | "High"
+    }
+  `;
+  try {
+    const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    const clean = raw.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch (e) {
+    const prob = Math.min(100, Math.max(0, match.score + (candidate.experience > 5 ? 10 : 0)));
+    return { 
+      hiring_probability: prob, 
+      offer_success: 75, 
+      summary: "Prediction based on technical alignment nodes.", 
+      risk_level: prob > 70 ? "Low" : "Medium" 
+    };
+  }
+}

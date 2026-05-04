@@ -288,11 +288,22 @@ export interface Shortlist {
   job_id: string;
   candidate_id: string;
   score: number;
+  interview_score?: number;
+  hiring_probability?: number;
+  offer_success_score?: number;
   stage: 'new' | 'matched' | 'shortlisted' | 'interview' | 'selected' | 'rejected';
   reason?: string;
+  prediction_summary?: string;
   matched_skills: string[];
   missing_skills: string[];
   source: 'crm' | 'resume';
+  ai_metadata?: {
+    risk_level?: 'Low' | 'Medium' | 'High';
+    interview_questions?: {
+      technical: string[];
+      gaps: string[];
+    };
+  };
   created_at: string;
   updated_at: string;
 }

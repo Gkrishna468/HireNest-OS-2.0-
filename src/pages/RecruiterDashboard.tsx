@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   XCircle,
   FileText,
-  Briefcase
+  Briefcase,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -144,6 +145,30 @@ export default function RecruiterDashboard() {
                       <h4 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
                         ID: {card.candidate_id.substring(0, 8)}...
                       </h4>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                           <p className="text-[8px] text-slate-400 font-bold uppercase">Hiring Prob.</p>
+                           <p className={cn(
+                             "text-xs font-black",
+                             (card.hiring_probability || 0) > 75 ? "text-emerald-600" : "text-amber-600"
+                           )}>{card.hiring_probability || 0}%</p>
+                        </div>
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                           <p className="text-[8px] text-slate-400 font-bold uppercase">Offer Success</p>
+                           <p className="text-xs font-black text-indigo-600">{card.offer_success_score || 0}%</p>
+                        </div>
+                      </div>
+
+                      {card.ai_metadata?.risk_level && (
+                        <div className="mt-2 flex items-center gap-1">
+                          <AlertCircle className={cn(
+                            "w-3 h-3",
+                            card.ai_metadata.risk_level === 'Low' ? "text-emerald-500" : "text-amber-500"
+                          )} />
+                          <span className="text-[9px] font-bold text-slate-500 capitalize">{card.ai_metadata.risk_level} Risk Profile</span>
+                        </div>
+                      )}
                       
                       <div className="mt-2 flex flex-wrap gap-1">
                         {card.matched_skills?.slice(0, 3).map(s => (
