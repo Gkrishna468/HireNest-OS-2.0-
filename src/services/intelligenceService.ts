@@ -290,8 +290,73 @@ export async function runDecisionAgent() {
 }
 
 /**
- * AI Interviewer Agent: Generates targeted technical questions based on gaps.
+ * Profiling Engine: Analyzes intent and urgency from raw text.
  */
+export async function profileClient(text: string): Promise<any> {
+  const prompt = `
+    Analyze this message/interaction and extract recruitment intent.
+    Return JSON:
+    {
+      "intent": "hiring | candidate | vendor | other",
+      "roles": ["role1"],
+      "urgency": "high | medium | low",
+      "budget": "high | mid | low",
+      "summary": "1-sentence summary",
+      "entities": {
+        "name": "Extracted name if any",
+        "company": "Extracted company name if any"
+      }
+    }
+    TEXT: ${text}
+  `;
+  try {
+    const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    const clean = raw.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch (e) {
+    return { intent: "other", roles: [], urgency: "low", summary: "Analysis failed." };
+  }
+}
+
+/**
+ * Pitch Engine: Generates concise, conversion-focused responses.
+ */
+export async function generatePitch(context: any): Promise<string> {
+  const prompt = `
+    Act as a High-Performance AI Recruiter for HireNest.
+    Generate a concise, professional WhatsApp-style pitch/response.
+    CONTEXT: ${JSON.stringify(context)}
+    
+    GUIDELINES:
+    - Max 3 short paragraphs
+    - Include a clear call to action
+    - Mention potential matches if provided
+  `;
+  try {
+    return await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+  } catch (e) {
+    return "Hi, thank you for reaching out. We are reviewing your requirements and will get back to you shortly.";
+  }
+}
+
+/**
+ * Follow-up Engine: Schedules next actions based on profile.
+ */
+export function decideFollowUp(profile: any): any {
+  if (profile.urgency === "high") {
+    return {
+      schedule: "tomorrow",
+      action: "Direct Call / Priority Follow-up",
+      priority: "high"
+    };
+  }
+  return {
+    schedule: "3 days",
+    action: "Email follow-up",
+    priority: "medium"
+  };
+}
+
 export async function generateInterviewQuestions(job: any, candidate: any, match: MatchResult): Promise<any> {
   const prompt = `
     Act as a Senior Technical Interviewer.

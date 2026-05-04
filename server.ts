@@ -4,6 +4,7 @@ import path from "path";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import { runUnifiedBrain } from "./src/services/brainService";
 
 dotenv.config();
 
@@ -86,6 +87,18 @@ async function startServer() {
     }
   });
 
+  // 1.6 UNIFIED BRAIN API
+  app.post("/api/ai/brain", async (req, res) => {
+    try {
+      const { text, source, contactId } = req.body;
+      const result = await runUnifiedBrain(text, source, contactId);
+      res.json(result);
+    } catch (err) {
+      console.error("Brain Controller Error:", err);
+      res.status(500).json({ error: "Brain processing failed" });
+    }
+  });
+
   // 2. WHATSAPP WEBHOOK HANDLER
   app.get("/api/webhooks/whatsapp", (req, res) => {
     const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "hirenest_verify_token";
@@ -122,42 +135,23 @@ async function startServer() {
           metadata: { channel: 'whatsapp', sender: from, content: text }
         }).select();
 
-        // 2. BRAIN: CONTEXT-AWARE REPLY
-        // Fetch candidate details if exists
-        const { data: candidate } = await supabase.from('candidates').select('*').eq('phone', from).maybeSingle();
-        
-        const context = candidate 
-          ? `The sender is Candidate ${candidate.name} (Match Score ${candidate.ai_match_score}%). They are currently in ${candidate.stage} stage.`
-          : `The sender is a new contact.`;
-
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent(`
-            Act as "Nestor", the high-end recruitment specialist from HireNest. 
-            You are professional, warm, and highly efficient. 
-            
-            CONTEXT:
-            ${context}
-            
-            USER MESSAGE:
-            "${text}"
-            
-            YOUR TASK:
-            1. Generate a human-like, customized WhatsApp reply. 
-            2. If they are a new contact, politely ask for their current role or top skill to help with lead generation.
-            3. If they ask about status, mention that our 'neural ranking engine' is currently validating their profile against high-priority mandates.
-            4. Keep it concise (under 300 characters), use 1-2 relevant emojis, and be helpful.
-            
-            REPLY:`);
-        
-        const response = await result.response;
-        const replyText = response.text();
+        // 2. UNIFIED BRAIN: Contextual Analysis & Response
+        const brainResult = await runUnifiedBrain(text, 'whatsapp', from);
+        const replyText = brainResult?.pitch || "Hi, I'm Nestor from HireNest. We've received your message and our neural engine is processing it. Stay tuned! 🚀";
 
         // 3. LOG OUTBOUND REPLY
         await supabase.from('agent_logs').insert({
           type: 'outreach',
           level: 'success',
-          message: `[WHATSAPP AUTO-REPLY] To +${from}: "${replyText.slice(0, 50)}..."`,
-          metadata: { channel: 'whatsapp', recipient: from, content: replyText, ai_generated: true }
+          message: `[WHATSAPP BRAIN-REPLY] To +${from}: "${replyText.slice(0, 50)}..."`,
+          metadata: { 
+            channel: 'whatsapp', 
+            recipient: from, 
+            content: replyText, 
+            ai_generated: true,
+            brain_profile: brainResult?.profile,
+            matches: brainResult?.matches?.length
+          }
         });
 
         // In production: await fetch('https://graph.facebook.com/...', { ...body: { to: from, text: { body: replyText } } })

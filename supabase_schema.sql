@@ -233,20 +233,74 @@ CREATE TABLE IF NOT EXISTS resumes (
   source TEXT DEFAULT 'direct',
   status TEXT DEFAULT 'pending',
   extracted_text TEXT,
+  extracted_skills TEXT[],
   parsed_data JSONB DEFAULT '{}',
+  processed BOOLEAN DEFAULT FALSE,
   company_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Ensure columns exist if table was created previously without them
+-- 11b. Shortlist Pipeline (Decision Intelligence Layer)
+CREATE TABLE IF NOT EXISTS shortlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID REFERENCES jobs(id),
+  candidate_id TEXT, -- Can be UUID (Candidate) or TEXT (Resume Reference)
+  score INT,
+  interview_score INT,
+  hiring_probability INT,
+  offer_success_score INT,
+  stage TEXT DEFAULT 'shortlisted', -- shortlisted, interview, selected, rejected
+  reason TEXT,
+  prediction_summary TEXT,
+  matched_skills TEXT[],
+  missing_skills TEXT[],
+  source TEXT, -- 'crm' | 'resume'
+  ai_metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  CONSTRAINT unique_job_candidate UNIQUE (job_id, candidate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_shortlist_job_id ON shortlist(job_id);
+CREATE INDEX IF NOT EXISTS idx_shortlist_stage ON shortlist(stage);
+CREATE INDEX IF NOT EXISTS idx_shortlist_score ON shortlist(score);
+
+-- Final patches for existing tables
 DO $$ 
 BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='resumes' AND column_name='source') THEN
-    ALTER TABLE resumes ADD COLUMN source TEXT DEFAULT 'direct';
+  -- Skills must be TEXT[] for neural matching
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='candidates' AND column_name='skills' AND data_type = 'text') THEN
+    ALTER TABLE candidates ALTER COLUMN skills TYPE TEXT[] USING string_to_array(skills, ',');
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='resumes' AND column_name='url') THEN
-    ALTER TABLE resumes ADD COLUMN url TEXT;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='jobs' AND column_name='skills' AND data_type = 'text') THEN
+    ALTER TABLE jobs ALTER COLUMN skills TYPE TEXT[] USING string_to_array(skills, ',');
+  END IF;
+
+  -- Ensure resumes columns exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='resumes' AND column_name='extracted_skills') THEN
+    ALTER TABLE resumes ADD COLUMN extracted_skills TEXT[];
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='resumes' AND column_name='processed') THEN
+    ALTER TABLE resumes ADD COLUMN processed BOOLEAN DEFAULT FALSE;
+  END IF;
+  
+  -- Shortlist columns
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='shortlist') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='shortlist' AND column_name='interview_score') THEN
+      ALTER TABLE shortlist ADD COLUMN interview_score INT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='shortlist' AND column_name='hiring_probability') THEN
+      ALTER TABLE shortlist ADD COLUMN hiring_probability INT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='shortlist' AND column_name='offer_success_score') THEN
+      ALTER TABLE shortlist ADD COLUMN offer_success_score INT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='shortlist' AND column_name='prediction_summary') THEN
+      ALTER TABLE shortlist ADD COLUMN prediction_summary TEXT;
+    END IF;
   END IF;
 END $$;
 
@@ -265,7 +319,11 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 ALTER TABLE resumes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Resumes access" ON resumes
-  FOR ALL USING (true); -- Simplified for now, should be company based in production
+  FOR ALL USING (true); -- Simplified for now
+
+ALTER TABLE shortlist ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Shortlist access" ON shortlist
+  FOR ALL USING (true); -- Simplified for now
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can only see their own notifications" ON notifications
