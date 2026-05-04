@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { Request, Response } from "express";
 
 const RATE_LIMIT = 30; // 30 requests per minute
 const WINDOW_MS = 60 * 1000;
@@ -26,7 +26,7 @@ function rateLimit(ip: string) {
   return { allowed: true };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }

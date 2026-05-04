@@ -7,11 +7,29 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseInstance: SupabaseClient | null = null;
 
-const getSupabaseUrl = () => 
-  localStorage.getItem('hirenest_supabase_url') || (import.meta.env.VITE_SUPABASE_URL as string) || '';
+const getSupabaseUrl = () => {
+  if (typeof localStorage !== 'undefined') {
+    const stored = localStorage.getItem('hirenest_supabase_url');
+    if (stored) return stored;
+  }
+  try {
+    return (import.meta.env?.VITE_SUPABASE_URL as string) || (process.env.VITE_SUPABASE_URL as string) || '';
+  } catch {
+    return (process.env.VITE_SUPABASE_URL as string) || '';
+  }
+};
 
-const getSupabaseAnonKey = () => 
-  localStorage.getItem('hirenest_supabase_anon_key') || (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
+const getSupabaseAnonKey = () => {
+  if (typeof localStorage !== 'undefined') {
+    const stored = localStorage.getItem('hirenest_supabase_anon_key');
+    if (stored) return stored;
+  }
+  try {
+    return (import.meta.env?.VITE_SUPABASE_ANON_KEY as string) || (process.env.VITE_SUPABASE_ANON_KEY as string) || '';
+  } catch {
+    return (process.env.VITE_SUPABASE_ANON_KEY as string) || '';
+  }
+};
 
 export const isSupabaseConfigured = () => {
   const url = getSupabaseUrl();
