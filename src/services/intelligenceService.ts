@@ -43,6 +43,8 @@ export interface MatchResult {
   reasoning: string;
   gaps: string[];
   recommendation: 'shortlist' | 'reserve' | 'reject';
+  matchedSkills?: string[];
+  missingSkills?: string[];
 }
 
 /**

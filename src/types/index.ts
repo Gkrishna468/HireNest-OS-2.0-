@@ -282,3 +282,17 @@ export interface UsageLog {
   metadata?: any;
   created_at: string;
 }
+
+export interface Shortlist {
+  id: string;
+  job_id: string;
+  candidate_id: string;
+  score: number;
+  stage: 'new' | 'matched' | 'shortlisted' | 'interview' | 'selected' | 'rejected';
+  reason?: string;
+  matched_skills: string[];
+  missing_skills: string[];
+  source: 'crm' | 'resume';
+  created_at: string;
+  updated_at: string;
+}

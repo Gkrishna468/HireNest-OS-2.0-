@@ -18,7 +18,8 @@ import {
   ArrowRight,
   AlertCircle,
   RefreshCw,
-  BrainCircuit
+  BrainCircuit,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -90,7 +91,12 @@ export default function AIMatching() {
     }));
 
     const totalPool = [
-      ...candidates.map(c => ({ ...c, source: 'crm' })), 
+      ...candidates.map(c => ({ 
+        ...c, 
+        source: 'crm', 
+        name: c.name, 
+        skills: Array.isArray(c.skills) ? c.skills : [] 
+      })), 
       ...resumePool
     ];
     
@@ -100,10 +106,10 @@ export default function AIMatching() {
       return;
     }
 
-    // Create an agent log for this "Autonomous" activity
+    // Create an agent log
     await supabase.from('agent_logs').insert({
       type: 'matching',
-      message: `Neural Engine scanning ${totalPool.length} profiles (CRM + Resumes) for: ${currentJob.title}`,
+      message: `Neural Engine scanning ${totalPool.length} profiles for: ${currentJob.title}`,
       level: 'info',
       status: 'running'
     });
@@ -111,7 +117,6 @@ export default function AIMatching() {
     const toastId = toast.loading(`AI Engine evaluating ${totalPool.length} profiles...`);
 
     try {
-      // Parallel evaluation
       const res = await Promise.all(totalPool.map(async (c) => {
         try {
           const evaluation = await scoreCandidateForJob(currentJob, c);
@@ -120,11 +125,12 @@ export default function AIMatching() {
             score: evaluation.score,
             reasoning: evaluation.reasoning,
             gaps: evaluation.gaps,
+            matchedSkills: evaluation.matchedSkills || [],
+            missingSkills: evaluation.missingSkills || [],
             recommendation: evaluation.recommendation
           };
-        } catch (e) {
-          console.error("Match evaluation error:", e);
-          return { ...c, score: 0, recommendation: 'reject' };
+        } catch (err) {
+          return { ...c, score: 0, reasoning: 'Evaluation failed' };
         }
       }));
 
@@ -132,10 +138,9 @@ export default function AIMatching() {
         .sort((a, b) => b.score - a.score)
         .filter(c => c.score >= 5);
 
-      // Final log entry
       await supabase.from('agent_logs').insert({
         type: 'matching',
-        message: `Found ${finalMatches.length} potential matches for ${currentJob.title}. Top score: ${finalMatches[0]?.score || 0}%`,
+        message: `Found ${finalMatches.length} matches for ${currentJob.title}.`,
         level: finalMatches.length > 0 ? 'success' : 'warning',
         status: 'finished'
       });
@@ -143,16 +148,35 @@ export default function AIMatching() {
       setMatches(finalMatches);
       
       if (finalMatches.length > 0 && finalMatches.every(r => r.score < matchThreshold)) {
-        toast.info('Discovery Mode: Showing relative matches below the survival threshold.', { id: toastId });
-      } else if (finalMatches.length === 0) {
-        toast.warning('Neural scan complete, but no candidates met the discovery threshold.', { id: toastId });
+        toast.info('Discovery Mode active.', { id: toastId });
       } else {
-        toast.success(`Neural scan complete. Found ${finalMatches.length} qualified matches.`, { id: toastId });
+        toast.success(`Score generated for ${finalMatches.length} candidates.`, { id: toastId });
       }
     } catch (err: any) {
       toast.error(`Matching Engine failed: ${err.message}`, { id: toastId });
     } finally {
       setIsMatching(false);
+    }
+  };
+
+  const handleShortlist = async (match: any) => {
+    const toastId = toast.loading('Adding to Shortlist Pipeline...');
+    try {
+      const { error } = await supabase.from('shortlist').insert({
+        job_id: selectedJob.id,
+        candidate_id: match.id,
+        score: match.score,
+        stage: 'shortlisted',
+        reason: match.reasoning,
+        matched_skills: match.matchedSkills,
+        missing_skills: match.missingSkills,
+        source: match.source
+      });
+
+      if (error) throw error;
+      toast.success(`${match.name} moved to pipeline!`, { id: toastId });
+    } catch (err) {
+      toast.error('Failed to shortlist candidate', { id: toastId });
     }
   };
 
@@ -315,10 +339,26 @@ export default function AIMatching() {
                             </span>
                           </div>
                         </div>
-                        <button className="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all group/btn">
-                          Select for Deal
-                          <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {match.url && (
+                            <a 
+                              href={match.url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all"
+                              title="View Document"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </a>
+                          )}
+                          <button 
+                            onClick={() => handleShortlist(match)}
+                            className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 rounded-xl text-xs font-bold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all group/btn"
+                          >
+                            Shortlist
+                            <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-1.5">

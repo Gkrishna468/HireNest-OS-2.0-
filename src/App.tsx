@@ -21,6 +21,7 @@ import Vendors from './pages/Vendors';
 import Resumes from './pages/Resumes';
 import Agents from './pages/Agents';
 import AIMatching from './pages/AIMatching';
+import RecruiterDashboard from './pages/RecruiterDashboard';
 import FollowUps from './pages/FollowUps';
 import DealRoom from './pages/DealRoom';
 import ExecSuite from './pages/ExecSuite';
@@ -72,6 +73,7 @@ export default function App() {
             <Route path="/resumes" element={<PrivateRoute><Resumes /></PrivateRoute>} />
             <Route path="/agents" element={<PrivateRoute><Agents /></PrivateRoute>} />
             <Route path="/ai-matching" element={<PrivateRoute><AIMatching /></PrivateRoute>} />
+            <Route path="/pipeline" element={<PrivateRoute><RecruiterDashboard /></PrivateRoute>} />
             <Route path="/follow-ups" element={<PrivateRoute><FollowUps /></PrivateRoute>} />
             <Route path="/deal-room" element={<PrivateRoute><DealRoom /></PrivateRoute>} />
             <Route path="/exec-suite" element={<PrivateRoute><ExecSuite /></PrivateRoute>} />
