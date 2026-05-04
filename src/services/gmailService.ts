@@ -102,25 +102,38 @@ export async function syncGmailResumes() {
     });
     const email = await detailRes.json();
 
+    const headers = email.payload.headers || [];
+    const subject = headers.find((h: any) => h.name === 'Subject')?.value || 'No Subject';
+    const from = headers.find((h: any) => h.name === 'From')?.value || 'Unknown';
+    const senderEmail = from.match(/<(.+?)>/)?.[1] || from;
+
     const parts = email.payload.parts || [];
     for (const part of parts) {
       if (part.filename && (part.filename.endsWith('.pdf') || part.filename.endsWith('.docx'))) {
         
-        // SIMULATION OF AI EXTRACTION
-        const text = await callAISecureProxy(`Extract candidate details from this email snippet: "${email.snippet}". 
-            Output JSON: { "name": "string", "skills": [], "experience": number, "summary": "string" }`);
+        // REAL AI EXTRACTION
+        const text = await callAISecureProxy(`Analyze this email snippet and extract candidate profile details. 
+            Snippet: "${email.snippet}"
+            
+            Return JSON only: { 
+              "name": "full name", 
+              "email": "personal email found in text",
+              "skills": ["skill1", "skill2"], 
+              "experience": number_of_years, 
+              "summary": "one sentence pitch" 
+            }`);
         
         const dataText = text.replace(/```json|```/g, '') || '{}';
         const candidateData = JSON.parse(dataText);
 
         const { error } = await supabase.from('candidates').insert({
-          name: candidateData.name || "Sourced Candidate",
-          email: "extracted@candidate.ai",
-          skills: candidateData.skills || ["New Talent"],
+          name: candidateData.name || from.split('<')[0].trim() || "Sourced Candidate",
+          email: candidateData.email || senderEmail || "contact@nest_sync.ai", 
+          skills: candidateData.skills || ["Sourced via AI"],
           experience: candidateData.experience || 0,
           stage: 'sourced',
-          source: 'gmail_ai_extraction',
-          summary: candidateData.summary
+          source: 'gmail_neural_extraction',
+          summary: candidateData.summary || `Extracted from email: ${subject}`
         });
 
         if (!error) {

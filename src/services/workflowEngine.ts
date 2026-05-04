@@ -47,24 +47,84 @@ export async function processWorkflowStep(jobId: string, type: JobType, payload:
   }
 }
 
-// 1. INGRESS AGENT: Fetches the data and kicks off classification
-async function handleGmailIngress(jobId: string, emailData: any) {
-  // Check Idempotency
-  const { data: existing } = await supabase
-    .from('agent_logs')
-    .select('id')
-    .eq('input->message_id', emailData.id)
-    .eq('status', 'success')
-    .maybeSingle();
+// 1. INGRESS AGENT: Fetches the real data from Gmail using historyId
+async function handleGmailIngress(jobId: string, payload: any) {
+  const { email, historyId } = payload;
+  
+  await updateJobStatus(jobId, { status: 'processing', message: 'Synchronizing history...' });
 
-  if (existing && existing.id !== jobId) {
-    await updateJobStatus(jobId, { status: 'success', message: 'Deduplicated: Already processed.' });
-    return;
+  try {
+    // 1. Fetch Profile for History Context
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (!profile) throw new Error(`Profile not found for ${email}`);
+
+    // 2. Get Access Token (assuming stored in metadata)
+    // In a real production app, we would use a refresh token here.
+    // For this environment, we retrieve the token captured during login.
+    
+    // FETCHING VIA GOOGLE API
+    const { google } = await import("googleapis");
+    const auth = new google.auth.OAuth2();
+    // We need a valid token. In a real app, you'd store refresh tokens in a secure table.
+    // For this context, we'll try to find any recently active token or return error.
+    const token = profile.metadata?.google_token; 
+    if (!token) throw new Error("GMAIL_TOKEN_MISSING: User must re-authenticate.");
+
+    auth.setCredentials({ access_token: token });
+    const gmail = google.gmail({ version: 'v1', auth });
+
+    const historyRes = await gmail.users.history.list({
+      userId: 'me',
+      startHistoryId: profile.metadata?.history_id || historyId
+    });
+
+    const records = historyRes.data.history || [];
+    let processedCount = 0;
+
+    for (const record of records) {
+      if (record.messagesAdded) {
+        for (const msgEntry of record.messagesAdded) {
+          if (!msgEntry.message?.id) continue;
+
+          const msg = await gmail.users.messages.get({
+            userId: 'me',
+            id: msgEntry.message.id,
+            format: 'full'
+          });
+
+          const headers = msg.data.payload?.headers || [];
+          const emailData = {
+            id: msg.data.id,
+            threadId: msg.data.threadId,
+            subject: headers.find(h => h.name === 'Subject')?.value || 'No Subject',
+            from: headers.find(h => h.name === 'From')?.value || 'Unknown',
+            snippet: msg.data.snippet || '',
+            internalDate: msg.data.internalDate
+          };
+
+          // Route each email to classification
+          await enqueueJob(JobType.AI_CLASSIFY, emailData);
+          processedCount++;
+        }
+      }
+    }
+
+    // Update profile historyId
+    await supabase.from('profiles').update({
+      metadata: { ...profile.metadata, history_id: historyId }
+    }).eq('id', profile.id);
+
+    await updateJobStatus(jobId, { status: 'success', message: `Processed ${processedCount} new messages.` });
+
+  } catch (err: any) {
+    console.error("[Ingress] Sync Failed:", err);
+    await updateJobStatus(jobId, { status: 'failed', message: err.message });
   }
-
-  await updateJobStatus(jobId, { status: 'processing', message: 'Signal Ingested. Routing to Classifier...' });
-  await enqueueJob(JobType.AI_CLASSIFY, emailData);
-  await updateJobStatus(jobId, { status: 'success' });
 }
 
 // 2. CLASSIFIER AGENT: Determines Intent

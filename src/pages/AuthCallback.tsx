@@ -16,6 +16,20 @@ export default function AuthCallback() {
 
         if (data.session) {
           toast.success('Neural Link Established.');
+          
+          // CAPTURE GOOGLE TOKEN FOR BACKEND AGENTS
+          const googleToken = data.session.provider_token;
+          const { user } = data.session;
+          
+          if (googleToken) {
+            await supabase.from('profiles').update({
+              metadata: { 
+                google_token: googleToken,
+                last_auth: new Date().toISOString()
+              }
+            }).eq('id', user.id);
+          }
+
           // Redirect to email if that's where they were headed, or dashboard
           navigate('/email');
         } else {
