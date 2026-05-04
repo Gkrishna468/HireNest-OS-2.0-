@@ -50,6 +50,19 @@ export default async function handler(req: Request, res: Response) {
     );
 
     const data = await response.json();
+    
+    // Attempt to extract and parse JSON if it's wrapped in markdown
+    try {
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        const clean = text.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(clean);
+        return res.status(200).json(parsed);
+      }
+    } catch {
+      // Fallback to raw data
+    }
+
     return res.status(200).json(data);
   } catch (error) {
     console.error("AI Proxy Error:", error);

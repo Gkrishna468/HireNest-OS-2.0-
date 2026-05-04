@@ -19,7 +19,7 @@ export default async function handler(req: any, res: any) {
     if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
     
     // Inject system instructions for the recruitment OS
     const systemPrompt = `You are HireNest AI, a high-performance recruitment assistant. 

@@ -22,6 +22,7 @@ export async function processNewJob(job: any) {
   await supabase.from('agent_logs').insert({
     type: 'revenue',
     level: 'info',
+    status: 'success',
     message: `[CFO AGENT] Budget adjusted for ${job.title}. Client Gross: ₹${job.budget} -> Vendor Net: ₹${adjustedBudget}`,
     metadata: { jobId: job.id, gross: job.budget, net: adjustedBudget }
   });
@@ -71,8 +72,9 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
   `;
 
   try {
-    const jsonString = await callAISecureProxy(prompt);
-    const cleanJson = jsonString.replace(/```json|```/g, "").trim();
+    const raw = await callAISecureProxy(prompt);
+    if (!raw) throw new Error("Empty AI response");
+    const cleanJson = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(cleanJson);
   } catch (error) {
     console.error("AI Parsing Error:", error);
@@ -102,6 +104,7 @@ export async function extractJobSkills(jdText: string): Promise<string[]> {
   `;
   try {
     const raw = await callAISecureProxy(prompt);
+    if (!raw) return [];
     const clean = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (e) {
@@ -160,8 +163,9 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
   `;
 
   try {
-    const jsonString = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
-    const cleanJson = jsonString.replace(/```json|```/g, "").trim();
+    const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    if (!raw) throw new Error("Empty AI response");
+    const cleanJson = raw.replace(/```json|```/g, "").trim();
     const result = JSON.parse(cleanJson);
     
     // Balanced Score: AI judgment mixed with hard heuristic to prevent halluciations or overly strict filters
@@ -206,6 +210,7 @@ export async function parseResumeText(text: string): Promise<any> {
   `;
   try {
     const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    if (!raw) return null;
     const clean = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (e) {
@@ -218,7 +223,8 @@ export async function runDecisionAgent() {
   await supabase.from('agent_logs').insert({
     type: 'decision',
     message: 'Autonomous Decision Agent cycle started.',
-    level: 'info'
+    level: 'info',
+    status: 'pending'
   });
 
   // 2. Find Pending Candidates
@@ -283,7 +289,7 @@ export async function runDecisionAgent() {
     type: 'decision',
     message: `Cycle complete. Processed ${candidates.length} profiles. Auto-Shortlisted: ${decisions} | Flagged for Review: ${reviews}.`,
     level: 'success',
-    status: 'finished'
+    status: 'success'
   });
 
   return `Cycle complete. Made ${decisions} decisions.`;
@@ -311,6 +317,7 @@ export async function profileClient(text: string): Promise<any> {
   `;
   try {
     const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    if (!raw) return { intent: "other", roles: [], urgency: "low", summary: "Analysis failed." };
     const clean = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (e) {
@@ -373,6 +380,7 @@ export async function generateInterviewQuestions(job: any, candidate: any, match
   `;
   try {
     const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    if (!raw) throw new Error("Empty AI response");
     const clean = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (e) {
@@ -402,6 +410,7 @@ export async function getHiringPrediction(job: any, candidate: any, match: Match
   `;
   try {
     const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
+    if (!raw) throw new Error("Empty AI response");
     const clean = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (e) {

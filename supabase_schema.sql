@@ -202,6 +202,7 @@ CREATE TABLE IF NOT EXISTS agent_logs (
   type TEXT,
   message TEXT,
   level TEXT DEFAULT 'info',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed', 'info')),
   metadata JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -480,8 +481,13 @@ BEGIN
     ALTER TABLE agent_logs ADD COLUMN agent_name TEXT;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='status') THEN
-    ALTER TABLE agent_logs ADD COLUMN status TEXT DEFAULT 'success';
+    ALTER TABLE agent_logs ADD COLUMN status TEXT DEFAULT 'pending';
   END IF;
+
+  -- Ensure status check constraint exists and is up to date
+  ALTER TABLE agent_logs DROP CONSTRAINT IF EXISTS agent_logs_status_check;
+  ALTER TABLE agent_logs ADD CONSTRAINT agent_logs_status_check 
+    CHECK (status IN ('pending', 'success', 'failed', 'info'));
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_logs' AND column_name='execution_time_ms') THEN
     ALTER TABLE agent_logs ADD COLUMN execution_time_ms INT;
   END IF;

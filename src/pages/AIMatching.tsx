@@ -111,7 +111,7 @@ export default function AIMatching() {
       type: 'matching',
       message: `Neural Engine scanning ${totalPool.length} profiles for: ${currentJob.title}`,
       level: 'info',
-      status: 'running'
+      status: 'pending'
     });
 
     const toastId = toast.loading(`AI Engine evaluating ${totalPool.length} profiles...`);
@@ -142,7 +142,7 @@ export default function AIMatching() {
         type: 'matching',
         message: `Found ${finalMatches.length} matches for ${currentJob.title}.`,
         level: finalMatches.length > 0 ? 'success' : 'warning',
-        status: 'finished'
+        status: 'success'
       });
 
       setMatches(finalMatches);

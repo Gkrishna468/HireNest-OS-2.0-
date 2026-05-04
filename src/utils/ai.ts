@@ -1,7 +1,7 @@
 /**
  * SECURE AI UTILITY
  * 
- * This utility sends prompts to the /api/ai/chat endpoint.
+ * This utility sends prompts to the /api/ai/proxy endpoint.
  * Benefits:
  * 1. API Key is hidden on the server.
  * 2. Server-side rate limiting prevents abuse.
@@ -10,10 +10,10 @@
 
 export async function callAIQuietly(prompt: string, context: any = {}) {
   try {
-    const response = await fetch("/api/ai/chat", {
+    const response = await fetch("/api/ai/proxy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, context }),
+      body: JSON.stringify({ prompt, config: context }),
     });
 
     if (!response.ok) {

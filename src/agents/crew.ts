@@ -18,7 +18,7 @@ export async function runCrew() {
     type: 'crew',
     message: 'Autonomous Crew mission initiated.',
     level: 'info',
-    status: 'running'
+    status: 'pending'
   });
 
   try {
@@ -40,7 +40,7 @@ export async function runCrew() {
       type: 'crew',
       message: `Mission Complete. Decisions: ${decisionRes} | Responses: ${replyRes} | Knowledge: ${learningRes}`,
       level: 'success',
-      status: 'finished',
+      status: 'success',
       metadata: { duration_ms: duration }
     });
 

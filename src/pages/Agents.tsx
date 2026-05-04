@@ -70,7 +70,7 @@ export default function Agents() {
           type: agentId,
           message: `${insight}`,
           level: 'success',
-          status: 'finished',
+          status: 'success',
           metadata: { triggered_at: new Date().toISOString() }
         });
         if (error) throw error;

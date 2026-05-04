@@ -4,7 +4,7 @@
  * Routes AI calls through the backend to protect sensitive keys.
  */
 export async function callAISecureProxy(prompt: string, config: any = {}) {
-  const endpoint = config.useProxy ? "/api/ai/proxy" : "/api/ai/chat";
+  const endpoint = "/api/ai/proxy";
   
   const response = await fetch(endpoint, {
     method: "POST",

@@ -57,7 +57,7 @@ async function startServer() {
 
       const fullPrompt = `${context ? `Context: ${JSON.stringify(context)}\n\n` : ""}User: ${prompt}`;
       
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
       const result = await model.generateContent(fullPrompt);
       const response = await result.response;
       const text = response.text();
@@ -75,12 +75,21 @@ async function startServer() {
       const { prompt, config } = req.body;
       if (!prompt) return res.status(400).json({ error: "Prompt required" });
       
-      const modelName = config?.model || "gemini-1.5-pro"; // Default to Pro for better matching
+      const modelName = config?.model || "gemini-1.5-pro";
       const model = genAI.getGenerativeModel({ model: modelName });
       
       const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      res.json(text);
+      const response = await result.response;
+      const text = response.text();
+      
+      // Ensure we return JSON if it looks like JSON, otherwise return the text
+      try {
+        const cleanJson = text.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(cleanJson);
+        res.json(parsed);
+      } catch {
+        res.json({ text });
+      }
     } catch (err) {
       console.error("AI Proxy Error:", err);
       res.status(500).json({ error: "AI Inference Failed" });
