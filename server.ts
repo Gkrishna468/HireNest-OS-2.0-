@@ -68,6 +68,24 @@ async function startServer() {
     }
   });
 
+  // 1.5 PRODUCTIVITY PROXY
+  app.post("/api/ai/proxy", async (req, res) => {
+    try {
+      const { prompt, config } = req.body;
+      if (!prompt) return res.status(400).json({ error: "Prompt required" });
+      
+      const modelName = config?.model || "gemini-1.5-pro"; // Default to Pro for better matching
+      const model = genAI.getGenerativeModel({ model: modelName });
+      
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      res.json(text);
+    } catch (err) {
+      console.error("AI Proxy Error:", err);
+      res.status(500).json({ error: "AI Inference Failed" });
+    }
+  });
+
   // 2. WHATSAPP WEBHOOK HANDLER
   app.get("/api/webhooks/whatsapp", (req, res) => {
     const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "hirenest_verify_token";

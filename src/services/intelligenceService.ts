@@ -134,7 +134,9 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
   const expMatch = candidate.experience >= (job.min_experience || 0) ? 100 : 60;
 
   const prompt = `
-    Act as a Senior Strategic Recruitment Director & Technical QA Chief. Perform a deep neural match.
+    Act as a Senior Strategic Recruitment Director & Technical QA Chief. 
+    Perform a deep neural match using GEMINI-1.5-PRO power.
+    
     JOB: ${job.title} | Critical Skills: ${jobSkills.join(", ")}
     CANDIDATE: ${candSkills.join(", ")} | Exp: ${candidate.experience}
     
@@ -184,8 +186,31 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
 }
 
 /**
- * Autonomous Decision Agent: The "Brain" that runs the pipeline
+ * Resume Parser: Converts raw text into structured candidate nodes.
  */
+export async function parseResumeText(text: string): Promise<any> {
+  const prompt = `
+    Extract structured candidate data from this resume text.
+    Return ONLY JSON:
+    {
+      "name": "string",
+      "email": "string",
+      "skills": ["skill1", "skill2"],
+      "experience": number,
+      "current_title": "string",
+      "summary": "string"
+    }
+    RESUME: ${text.substring(0, 4000)}
+  `;
+  try {
+    const raw = await callAISecureProxy(prompt);
+    const clean = raw.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch (e) {
+    console.error("Resume Parsing Error:", e);
+    return null;
+  }
+}
 export async function runDecisionAgent() {
   // 1. Log Start
   await supabase.from('agent_logs').insert({

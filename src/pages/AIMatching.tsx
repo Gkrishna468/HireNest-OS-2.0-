@@ -62,20 +62,28 @@ export default function AIMatching() {
       }
     }
 
-    // Combine structural candidates and unstructured resumes
+    // 2. Combine structural candidates and unstructured resumes into a UNIFIED TALENT POOL
     const resumePool = resumes.map(r => ({
       id: r.id,
-      name: r.file_name,
-      skills: r.parsed_data?.skills || [],
-      experience: r.extracted_text || '',
-      yearsExperience: r.parsed_data?.yearsOfExperience || 0,
-      location: r.parsed_data?.location || 'Extracted',
-      source: 'resume_repo',
+      name: r.file_name?.replace('.pdf', '') || 'Unnamed Candidate',
+      skills: r.extracted_skills || r.parsed_data?.skills || [], // Use new extracted_skills column if present
+      experience: r.parsed_data?.yearsOfExperience || 0,
+      summary: r.extracted_text?.substring(0, 500),
+      source: 'resume_upload',
       url: r.url
     }));
 
-    const totalPool = [...candidates, ...resumePool];
+    const totalPool = [
+      ...candidates.map(c => ({ ...c, source: 'crm' })), 
+      ...resumePool
+    ];
     
+    if (totalPool.length === 0) {
+      toast.error('No talent pool found (CRM or Resumes).');
+      setIsMatching(false);
+      return;
+    }
+
     // Create an agent log for this "Autonomous" activity
     await supabase.from('agent_logs').insert({
       type: 'matching',
@@ -261,11 +269,19 @@ export default function AIMatching() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-4">
                         <div>
-                          <h4 className="font-bold text-slate-900 text-lg group-hover:text-indigo-600 transition-colors">{match.name}</h4>
+                          <div className="flex items-center gap-2">
+                             <h4 className="font-bold text-slate-900 text-lg group-hover:text-indigo-600 transition-colors">{match.name}</h4>
+                             <span className={cn(
+                               "px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+                               match.source === 'crm' ? "bg-slate-100 text-slate-600" : "bg-indigo-100 text-indigo-600"
+                             )}>
+                               {match.source === 'crm' ? 'CRM Profile' : 'New Resume'}
+                             </span>
+                          </div>
                           <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500 font-medium">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5" />
-                              {match.yearsExperience} yrs exp
+                              {match.yearsExperience || match.experience} yrs exp
                             </span>
                           </div>
                         </div>
@@ -273,6 +289,21 @@ export default function AIMatching() {
                           Select for Deal
                           <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {safeArray(match.matchedSkills).map(s => (
+                          <span key={s} className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100 flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            {s}
+                          </span>
+                        ))}
+                        {safeArray(match.missingSkills).slice(0, 5).map(s => (
+                          <span key={s} className="px-2 py-0.5 bg-red-50/50 text-red-400 text-[10px] font-bold rounded-md border border-red-100/30 flex items-center gap-1">
+                            <AlertCircle className="w-2.5 h-2.5 opacity-50" />
+                            {s}
+                          </span>
+                        ))}
                       </div>
 
                       {match.reasoning && (
