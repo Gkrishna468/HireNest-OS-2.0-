@@ -160,102 +160,63 @@ async function startServer() {
         return res.status(400).send("Invalid Pub/Sub message");
       }
 
-      // Decode Base64 data
-      const data = JSON.parse(Buffer.from(message.data, "base64").toString());
-      const { emailAddress, historyId } = data;
+      const ingressData = JSON.parse(Buffer.from(message.data, "base64").toString());
+      const { emailAddress, historyId } = ingressData;
 
-      console.log(`📩 [GMAIL PUSH] Signal received for ${emailAddress} (History: ${historyId})`);
+      console.log(`📩 [QUEUE INGRESS] Signal received for ${emailAddress}`);
 
-      // 1. Deduplication Check (Simple check against recent logs)
-      const { data: existingLog } = await supabase
-        .from("agent_logs")
-        .select("id")
-        .eq("input->historyId", historyId)
-        .limit(1)
-        .maybeSingle();
+      // 1. Enqueue the entry point job
+      const { JobType, enqueueJob } = await import("./src/services/queueService");
+      await enqueueJob(JobType.GMAIL_EVENT, { 
+        email: emailAddress, 
+        historyId,
+        id: `gmail_${historyId}_${Date.now()}` 
+      });
 
-      if (existingLog) {
-        console.log(`[Deduplication] historyId ${historyId} already processed.`);
-        return res.status(200).send("ALREADY_PROCESSED");
-      }
-
-      // 2. Log the ingress event
-      const { data: logEntry } = await supabase.from("agent_logs").insert({
-        type: "workflow",
-        agent_name: "Nestor Ingress Agent",
-        message: `Gmail Signal Detected for ${emailAddress}`,
-        level: "info",
-        input: { historyId, emailAddress },
-        status: "pending"
-      }).select().single();
-
-      // 3. Fetch User Credentials
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("email", emailAddress)
-        .single();
-
-      if (!profile) {
-        console.error("No profile found for email:", emailAddress);
-        return res.status(200).send("User not found");
-      }
-
-      // 4. Trigger Async Processing
-      processGmailChanges(profile, historyId, logEntry?.id).catch(err => console.error("Async Processing Error:", err));
-
-      res.status(200).send("OK");
+      res.status(200).send("ENQUEUED");
     } catch (err) {
-      console.error("Gmail Webhook Error:", err);
-      res.status(500).send("INTERNAL_ERROR");
+      console.error("Webhook Error:", err);
+      res.status(500).send("ERROR");
     }
   });
 
-  async function processGmailChanges(profile: any, historyId: string, logId?: string) {
-    const { google } = await import("googleapis");
-    
-    try {
-      // In a real environment, we'd use the refresh token to get a fresh access token
-      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(profile.id);
-      
-      if (userError || !userData.user) {
-        throw new Error(`User retrieval failed: ${userError?.message}`);
+  // 4. NESTOR WORKER POOL (Background Process)
+  async function startNestorWorker() {
+    const { fetchPendingJobs, updateJobStatus } = await import("./src/services/queueService");
+    const { processWorkflowStep } = await import("./src/services/workflowEngine");
+
+    setInterval(async () => {
+      try {
+        const jobs = await fetchPendingJobs(3); // Process 3 jobs per cycle
+        if (jobs.length > 0) {
+          console.log(`[Nestor Worker] Processing ${jobs.length} jobs...`);
+          for (const job of jobs) {
+            const type = job.input?.type || (job.input as any)?.payload?.type;
+            const payload = job.input?.payload || job.input;
+            
+            if (!type || !payload) {
+              await updateJobStatus(job.id, { status: 'failed', message: 'Malformed job data' });
+              continue;
+            }
+
+            // Mark as processing immediately to avoid double-pickup
+            await updateJobStatus(job.id, { status: 'processing' });
+            
+            // Execute in background
+            processWorkflowStep(job.id, type, payload).catch(err => {
+              console.error(`[Nestor Worker] Fatal error on job ${job.id}:`, err);
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[Nestor Worker] Cycle Error:", err);
       }
-
-      console.log(`[Neural Sync] Fetching changes for ${profile.email} since historyId ${historyId}`);
-
-      if (logId) {
-        await supabase.from("agent_logs").update({
-          message: `Synchronizing history ${historyId}. Extracting messages...`,
-          status: "running"
-        }).eq("id", logId);
-      }
-
-      // Simulation of message extraction to demonstrate the workflow engine
-      // In production, we'd use: const history = await gmail.users.history.list({ userId: 'me', startHistoryId: historyId });
-      const mockEmailData = {
-        subject: "New Application: Senior React Developer",
-        from: "candidate@example.com",
-        snippet: "I am interested in the React role at your company. My top skills are React, TypeScript, and Node.js.",
-        id: `msg_${Date.now()}`
-      };
-
-      // 2. Hand off to Nestor Workflow Engine
-      const { executeWorkflow, WorkflowTrigger } = await import("./src/services/workflowEngine");
-      await executeWorkflow(WorkflowTrigger.EMAIL_RECEIVED, mockEmailData);
-
-    } catch (err: any) {
-      console.error("Background Sync Error:", err);
-      if (logId) {
-        await supabase.from("agent_logs").update({
-          status: "error",
-          message: `Sync Failed: ${err.message}`
-        }).eq("id", logId);
-      }
-    }
+    }, 5000); // 5-second polling interval
   }
 
-  // 4. HEALTH CHECK & MAINTENANCE
+  startNestorWorker().catch(err => console.error("Worker startup failed:", err));
+
+  // 5. HEALTH CHECK & MAINTENANCE
   app.get("/api/health", (req, res) => {
     res.json({ 
       status: "ok", 
