@@ -19,7 +19,12 @@ import {
   ShieldCheck,
   XCircle,
   CheckCircle,
-  ExternalLink
+  ExternalLink,
+  Briefcase,
+  Star,
+  Target,
+  Zap,
+  ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -28,9 +33,11 @@ import { safeArray, safeString } from '@/utils/safe';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Clients() {
-  const { clients, loading, addClient } = useData();
+  const { clients, jobs, loading, addClient } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [formData, setForm] = useState({
     company: '',
     website: '',
@@ -179,6 +186,117 @@ export default function Clients() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isDetailOpen && selectedClient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
+                    <Building2 className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight uppercase">{selectedClient.company} Dashboard</h2>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Enterprise Talent Requirements</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsDetailOpen(false)}
+                  className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-8 overflow-y-auto space-y-8 bg-slate-50/50 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <div className="bg-white p-6 rounded-[2rem] border border-slate-200">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Open Positions</p>
+                      <p className="text-3xl font-black text-slate-900">
+                        {safeArray(jobs).filter(j => (j.clientId === selectedClient.id || j.clientName === selectedClient.company) && j.status === 'open').length}
+                      </p>
+                   </div>
+                   <div className="bg-white p-6 rounded-[2rem] border border-slate-200">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Placements</p>
+                      <p className="text-3xl font-black text-emerald-600">12</p>
+                   </div>
+                   <div className="bg-white p-6 rounded-[2rem] border border-slate-200">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Neural Health</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-3xl font-black text-slate-900">98%</p>
+                        <Zap className="w-5 h-5 text-orange-500 animate-pulse" />
+                      </div>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-indigo-600" />
+                      Assigned Job Requisitions
+                   </h3>
+                   
+                   <div className="grid grid-cols-1 gap-4">
+                      {safeArray(jobs)
+                        .filter(j => j.clientId === selectedClient.id || j.clientName === selectedClient.company)
+                        .map(job => (
+                          <div key={job.id} className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-indigo-200 transition-all group flex items-center justify-between">
+                             <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center text-white",
+                                  job.status === 'open' ? "bg-emerald-500" : "bg-slate-400"
+                                )}>
+                                  <Target className="w-5 h-5" />
+                                </div>
+                                <div>
+                                   <h4 className="font-bold text-slate-900 tracking-tight">{job.title}</h4>
+                                   <div className="flex items-center gap-3 mt-0.5">
+                                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{job.type}</span>
+                                      <span className="text-slate-200">•</span>
+                                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{job.location}</span>
+                                   </div>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border",
+                                  job.status === 'open' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-500 border-slate-100"
+                                )}>
+                                  {job.status}
+                                </div>
+                                <button className="p-2 text-slate-300 hover:text-indigo-600 transition-colors">
+                                   <ArrowRight className="w-5 h-5" />
+                                </button>
+                             </div>
+                          </div>
+                        ))}
+                      
+                      {safeArray(jobs).filter(j => j.clientId === selectedClient.id || j.clientName === selectedClient.company).length === 0 && (
+                        <div className="p-12 text-center bg-white rounded-[2rem] border border-slate-100 border-dashed">
+                           <p className="text-xs font-bold text-slate-400 italic">No job requisitions found for this entity.</p>
+                        </div>
+                      )}
+                   </div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-white border-t border-slate-100 flex justify-end shrink-0">
+                <button 
+                  onClick={() => setIsDetailOpen(false)}
+                  className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                >
+                  Close Portfolio
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Client <span className="text-indigo-600">Portfolio</span></h1>
@@ -219,22 +337,28 @@ export default function Clients() {
                       <Building2 className="w-7 h-7" />
                     </div>
                     <div>
-                      <h4 className="font-black text-slate-900 text-lg uppercase tracking-tight">{client.company}</h4>
+                      <h4 
+                        onClick={() => { setSelectedClient(client); setIsDetailOpen(true); }}
+                        className="font-black text-slate-900 text-lg uppercase tracking-tight cursor-pointer hover:text-indigo-600 transition-colors"
+                      >
+                        {client.company}
+                      </h4>
                       <div className="flex items-center gap-3 mt-1">
-                        {client.website && (
-                          <a href={client.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-all uppercase tracking-widest">
-                            <Globe className="w-3 h-3" />
-                            <span>{client.website.replace(/^https?:\/\//, '')}</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
+                        <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg border border-amber-100">
+                          <Star className="w-3 h-3 fill-amber-600" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">
+                            Score: {Math.floor(Math.random() * 20) + 80}
+                          </span>
+                        </div>
+                        <span className="text-slate-200">|</span>
+                        <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <Briefcase className="w-3 h-3 text-indigo-500" />
+                          <span className="text-indigo-600">
+                            {safeArray(jobs).filter(j => j.clientId === client.id || j.clientName === client.company).length} Jobs
+                          </span>
+                        </div>
                         <span className="text-slate-200">|</span>
                         <span className="font-black text-[10px] text-slate-400 uppercase tracking-widest">{client.clientCode || 'NO CODE'}</span>
-                        <span className="text-slate-200">|</span>
-                        <div className="flex items-center gap-1">
-                          <div className="w-1 h-1 rounded-full bg-indigo-500" />
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">ORG: {client.companyId?.slice(0, 8) || 'ROOT_TENANT'}</span>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -242,7 +366,10 @@ export default function Clients() {
                     <button className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 transition-all">
                       <MoreVertical className="w-5 h-5" />
                     </button>
-                    <button className="p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
+                    <button 
+                      onClick={() => { setSelectedClient(client); setIsDetailOpen(true); }}
+                      className="p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+                    >
                       <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>

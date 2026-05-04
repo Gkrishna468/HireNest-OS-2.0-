@@ -432,14 +432,14 @@ export default function Jobs() {
                       setNewJob({
                         ...newJob, 
                         clientId: e.target.value,
-                        clientName: selectedClient?.name || ''
+                        clientName: selectedClient?.company || ''
                       });
                     }}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                   >
                     <option value="">Select a Client Partner</option>
                     {safeArray(clients).map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.clientCode})</option>
+                      <option key={c.id} value={c.id}>{c.company} ({c.clientCode || 'PRO'})</option>
                     ))}
                   </select>
                 ) : (
@@ -735,13 +735,25 @@ export default function Jobs() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client Partner</label>
-                <input
-                  type="text"
+                <select
                   required
-                  value={editJob.clientName}
-                  onChange={(e) => setEditJob({...editJob, clientName: e.target.value})}
+                  value={editJob.clientId || ''}
+                  onChange={(e) => {
+                    const client = clients.find((c: any) => c.id === e.target.value);
+                    setEditJob({
+                      ...editJob, 
+                      clientId: e.target.value,
+                      clientName: client?.company || ''
+                    });
+                  }}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
-                />
+                >
+                  <option value="">Select Client</option>
+                  {clients.map((client: any) => (
+                    <option key={client.id} value={client.id}>{client.company}</option>
+                  ))}
+                  <option value="direct">Direct Hire (No Client)</option>
+                </select>
               </div>
 
               <div className="space-y-1">
