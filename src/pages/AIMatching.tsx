@@ -32,6 +32,7 @@ export default function AIMatching() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [isMatching, setIsMatching] = useState(false);
+  const [matchThreshold, setMatchThreshold] = useState(50);
 
   // Fetch resumes directly to bypass any caching in DataContext
   const fetchResumes = async () => {
@@ -105,7 +106,7 @@ export default function AIMatching() {
 
       const finalMatches = res
         .sort((a, b) => b.score - a.score)
-        .filter(c => c.score >= 5); // Lower threshold to show even weak matches in demo mode
+        .filter(c => c.score >= 5);
 
       // Final log entry
       await supabase.from('agent_logs').insert({
@@ -117,10 +118,12 @@ export default function AIMatching() {
 
       setMatches(finalMatches);
       
-      if (finalMatches.length === 0) {
-        toast.warning('Neural scan complete, but no candidates met the survival threshold.', { id: toastId });
+      if (finalMatches.length > 0 && finalMatches.every(r => r.score < matchThreshold)) {
+        toast.info('Discovery Mode: Showing relative matches below the survival threshold.', { id: toastId });
+      } else if (finalMatches.length === 0) {
+        toast.warning('Neural scan complete, but no candidates met the discovery threshold.', { id: toastId });
       } else {
-        toast.success(`Neural scan complete. Found ${finalMatches.length} matches across all sources.`, { id: toastId });
+        toast.success(`Neural scan complete. Found ${finalMatches.length} qualified matches.`, { id: toastId });
       }
     } catch (err: any) {
       toast.error(`Matching Engine failed: ${err.message}`, { id: toastId });
@@ -219,7 +222,7 @@ export default function AIMatching() {
               </button>
             </div>
 
-            <div className="divide-y divide-slate-50 flex-1">
+            <div className="divide-y divide-slate-50 flex-1 overflow-y-auto">
               {isMatching ? (
                 <div className="h-full flex flex-col items-center justify-center p-20 text-center animate-pulse">
                   <div className="relative">
@@ -232,8 +235,19 @@ export default function AIMatching() {
                   <p className="text-sm text-slate-500 max-w-xs mt-2">Connecting candidates from resumes and portal data to your specific job requirements.</p>
                 </div>
               ) : matches.length > 0 ? (
-                matches.map(match => (
-                  <div key={match.id} className="p-6 hover:bg-slate-50 transition-colors group flex items-start gap-6">
+                <div className="flex flex-col flex-1 divide-y divide-slate-50">
+                  {matches.filter(m => m.score >= matchThreshold).length === 0 && matches.length > 0 && (
+                    <div className="p-4 bg-amber-50 border-b border-amber-100 text-center">
+                      <p className="text-xs text-amber-600 font-bold uppercase tracking-widest leading-none">Discovery Mode</p>
+                      <p className="text-[10px] text-amber-500 mt-1 italic">Showing closest relative matches (None met the {matchThreshold}% threshold)</p>
+                    </div>
+                  )}
+                  
+                  {(matches.filter(m => m.score >= matchThreshold).length > 0 
+                    ? matches.filter(m => m.score >= matchThreshold)
+                    : matches.slice(0, 5)
+                  ).map(match => (
+                    <div key={match.id} className="p-6 hover:bg-slate-50 transition-colors group flex items-start gap-6">
                     <div className="relative pt-1 shrink-0">
                       <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center font-bold text-lg text-indigo-600 group-hover:border-indigo-200 transition-colors">
                         {match.score}%
@@ -288,8 +302,9 @@ export default function AIMatching() {
                       )}
                     </div>
                   </div>
-                ))
-              ) : (
+                ))}
+              </div>
+            ) : (
                 <div className="p-20 text-center text-slate-400 flex flex-col items-center justify-center h-full">
                   <Search className="w-12 h-12 mb-4 opacity-10" />
                   <p className="font-medium">No matches found yet.</p>

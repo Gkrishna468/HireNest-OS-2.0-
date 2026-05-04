@@ -48,7 +48,7 @@ export default function Jobs() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [isViewDetailOpen, setIsViewDetailOpen] = useState(false);
-  const [matchThreshold, setMatchThreshold] = useState(70);
+  const [matchThreshold, setMatchThreshold] = useState(50);
   const [isMatching, setIsMatching] = useState(false);
   const [jobMatches, setJobMatches] = useState<any[]>([]);
   const [selectedJob, setSelectedJob] = useState<any>(null);
@@ -752,7 +752,17 @@ export default function Jobs() {
                         </div>
                       )}
 
-                      {jobMatches.filter(m => m.score >= matchThreshold).map((match, idx) => (
+                      {jobMatches.length > 0 && jobMatches.filter(m => m.score >= matchThreshold).length === 0 && (
+                        <div className="py-6 text-center bg-slate-800/30 rounded-xl border border-slate-700/50">
+                          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">No perfect matches</p>
+                          <p className="text-slate-500 text-xs italic">Showing best available relative nodes below.</p>
+                        </div>
+                      )}
+
+                      {(jobMatches.filter(m => m.score >= matchThreshold).length > 0 
+                        ? jobMatches.filter(m => m.score >= matchThreshold)
+                        : jobMatches.slice(0, 5)
+                      ).map((match, idx) => (
                         <div key={idx} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800 transition-all">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">

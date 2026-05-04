@@ -41,7 +41,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import type { Vendor, Candidate } from '@/types';
 
 export default function Vendors() {
-  const { vendors, candidates, loading, addVendor, updateVendor } = useData();
+  const { vendors, candidates, loading, addVendor, updateVendor, refreshAll } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
@@ -121,13 +121,20 @@ export default function Vendors() {
     if (!selectedVendor) return;
     try {
       if (typeof updateVendor === 'function') {
-        await updateVendor(selectedVendor.id, editForm);
-        toast.success('Partner details updated.');
+        const payload = {
+          ...editForm,
+          specialization: typeof editForm.specialization === 'string' 
+            ? (editForm.specialization as string).split(',').map(s => s.trim()).filter(Boolean)
+            : editForm.specialization
+        };
+        await updateVendor(selectedVendor.id, payload);
+        toast.success('Partner details updated in neural grid.');
         setIsEditing(false);
         setIsDetailOpen(false);
+        refreshAll(); // Refresh the list
       }
     } catch (err) {
-      toast.error('Failed to update details');
+      toast.error('Failed to update neural details');
     }
   };
 

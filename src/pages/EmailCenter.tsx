@@ -217,12 +217,17 @@ export function EmailCenter() {
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Neural Intent</span>
                   <div className="flex items-center gap-1 text-indigo-600">
                     <Sparkles className="w-3 h-3" />
-                    <span className="text-xs font-bold">{selectedEmail.ai_metadata?.score || 0}% Match</span>
+                    <span className="text-xs font-bold">{selectedEmail.ai_metadata?.best_job_match?.score || 0}% Job Match</span>
                   </div>
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 capitalize">
                   {selectedEmail.ai_metadata?.intent?.replace(/_/g, ' ') || 'Detecting Intent...'}
                 </h3>
+                {selectedEmail.ai_metadata?.best_job_match && (
+                  <div className="mt-2 text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">
+                    Role: {selectedEmail.ai_metadata.best_job_match.job_title}
+                  </div>
+                )}
               </div>
 
               {/* ACTION CENTER */}
