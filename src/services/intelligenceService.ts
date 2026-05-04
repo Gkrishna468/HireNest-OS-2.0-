@@ -158,7 +158,7 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
   `;
 
   try {
-    const jsonString = await callAISecureProxy(prompt);
+    const jsonString = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
     const cleanJson = jsonString.replace(/```json|```/g, "").trim();
     const result = JSON.parse(cleanJson);
     
@@ -203,7 +203,7 @@ export async function parseResumeText(text: string): Promise<any> {
     RESUME: ${text.substring(0, 4000)}
   `;
   try {
-    const raw = await callAISecureProxy(prompt);
+    const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
     const clean = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (e) {

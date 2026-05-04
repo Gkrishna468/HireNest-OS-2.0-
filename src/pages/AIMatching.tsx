@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { scoreCandidateForJob } from '@/services/intelligenceService';
+import { processResumes } from '@/services/resumeService';
 import { safeArray, safeString } from '@/utils/safe';
 import { toast } from 'sonner';
 
@@ -32,6 +33,7 @@ export default function AIMatching() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [isMatching, setIsMatching] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [matchThreshold, setMatchThreshold] = useState(50);
 
   // Fetch resumes directly to bypass any caching in DataContext
@@ -43,6 +45,20 @@ export default function AIMatching() {
   React.useEffect(() => {
     fetchResumes();
   }, []);
+
+  const handleProcessResumes = async () => {
+    setIsProcessing(true);
+    const toastId = toast.loading('AI Agent parsing historical resume library...');
+    try {
+      const result = await processResumes();
+      toast.success(`Processed ${result.count} new resumes into talent pool!`, { id: toastId });
+      await fetchResumes(); // Refresh resume list
+    } catch (err) {
+      toast.error('Neural processing failed', { id: toastId });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const runMatching = async () => {
     if (!selectedJob) return;
@@ -188,6 +204,20 @@ export default function AIMatching() {
                 {isMatching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-current" />}
                 {isMatching ? 'Running AI Scoring...' : 'Run Neural Match'}
               </button>
+
+              <div className="pt-2">
+                <button 
+                  onClick={handleProcessResumes}
+                  disabled={isProcessing}
+                  className="w-full bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm"
+                >
+                  <RefreshCw className={cn("w-4 h-4", isProcessing && "animate-spin")} />
+                  {isProcessing ? 'Processing Library...' : 'Sync Pending Resumes'}
+                </button>
+                <p className="text-[10px] text-slate-400 text-center mt-2 font-medium italic">
+                  * Converts historical raw resumes into structured matches
+                </p>
+              </div>
             </div>
           </div>
 

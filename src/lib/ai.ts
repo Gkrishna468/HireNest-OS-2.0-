@@ -3,11 +3,20 @@
  * AI SECURE PROXY UTILITY
  * Routes AI calls through the backend to protect sensitive keys.
  */
-export async function callAISecureProxy(prompt: string, context: any = {}) {
-  const response = await fetch("/api/ai/chat", {
+export async function callAISecureProxy(prompt: string, config: any = {}) {
+  const endpoint = config.useProxy ? "/api/ai/proxy" : "/api/ai/chat";
+  
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, context }),
+    body: JSON.stringify({ 
+      prompt, 
+      config: {
+        model: config.model || "gemini-1.5-pro",
+        ...config
+      },
+      context: config.context
+    }),
   });
 
   if (!response.ok) {
@@ -16,5 +25,6 @@ export async function callAISecureProxy(prompt: string, context: any = {}) {
   }
 
   const data = await response.json();
-  return data.text;
+  // Support both response formats ({text: ""} or just "")
+  return typeof data === 'string' ? data : data.text;
 }
