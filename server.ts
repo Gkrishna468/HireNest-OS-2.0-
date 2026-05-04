@@ -152,7 +152,82 @@ async function startServer() {
     }
   });
 
-  // 3. HEALTH CHECK
+  // 3. GMAIL PUB/SUB WEBHOOK HANDLER
+  app.post("/api/webhooks/gmail", async (req, res) => {
+    try {
+      const { message } = req.body;
+      if (!message || !message.data) {
+        return res.status(400).send("Invalid Pub/Sub message");
+      }
+
+      // Decode Base64 data
+      const data = JSON.parse(Buffer.from(message.data, "base64").toString());
+      const { emailAddress, historyId } = data;
+
+      console.log(`📩 [GMAIL PUSH] Signal received for ${emailAddress} (History: ${historyId})`);
+
+      // 1. Log the ingress event
+      await supabase.from("agent_logs").insert({
+        type: "workflow",
+        agent_name: "Nestor Ingress Agent",
+        message: `Gmail Signal Detected for ${emailAddress}`,
+        level: "info",
+        input: { historyId, emailAddress },
+        status: "pending"
+      });
+
+      // 2. Fetch User Credentials
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("email", emailAddress)
+        .single();
+
+      if (!profile) {
+        console.error("No profile found for email:", emailAddress);
+        return res.status(200).send("User not found"); // Still return 200 to acknowledge Pub/Sub
+      }
+
+      // 3. Trigger Async Processing (we won't block the webhook)
+      processGmailChanges(profile, historyId).catch(err => console.error("Async Processing Error:", err));
+
+      res.status(200).send("OK");
+    } catch (err) {
+      console.error("Gmail Webhook Error:", err);
+      res.status(500).send("INTERNAL_ERROR");
+    }
+  });
+
+  async function processGmailChanges(profile: any, historyId: string) {
+    // In a real environment, we'd use the refresh token to get a fresh access token
+    // For this simulation, we'll try to fetch the profile from Supabase
+    try {
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(profile.id);
+      
+      if (userError || !userData.user) {
+        throw new Error(`User retrieval failed: ${userError?.message}`);
+      }
+
+      console.log(`[Neural Sync] Fetching changes for ${profile.email} since historyId ${historyId}`);
+      
+      // LOG SUCCESSFUL TRIGGER
+      await supabase.from("agent_logs").insert({
+        type: "workflow",
+        agent_name: "Nestor Ingress Agent",
+        message: `Synchronizing neural history for ${profile.email}...`,
+        level: "info",
+        status: "success",
+        metadata: { historyId }
+      });
+
+      // Here we would call gmail.users.history.list(...)
+      // Then trigger executeWorkflow(WorkflowTrigger.EMAIL_RECEIVED, emailData)
+    } catch (err) {
+      console.error("Background Sync Error:", err);
+    }
+  }
+
+  // 4. HEALTH CHECK
   app.get("/api/health", (req, res) => {
     res.json({ 
       status: "ok", 

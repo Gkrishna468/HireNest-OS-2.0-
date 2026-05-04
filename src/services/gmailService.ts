@@ -133,3 +133,52 @@ export async function syncGmailResumes() {
 
   return { count: extractedCount, message: `Intelligence Agent extracted ${extractedCount} new profiles.` };
 }
+
+export async function setupGmailWatch() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.provider_token;
+
+  if (!token) {
+    throw new Error("GMAIL_NOT_CONNECTED: Please re-authorize via Settings.");
+  }
+
+  // NOTE: You must replace 'YOUR_PROJECT_ID' with your actual Google Cloud Project ID
+  // and 'gmail-notifications' with your Pub/Sub topic name.
+  // The topic must have permission for gmail-api-push@system.gserviceaccount.com to publish.
+  
+  const watchUrl = "https://gmail.googleapis.com/gmail/v1/users/me/watch";
+  const watchRes = await fetch(watchUrl, {
+    method: 'POST',
+    headers: { 
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      topicName: "projects/lxunyqrcajytliwllyox/topics/gmail-notifications", // User to update in console
+      labelIds: ["INBOX"]
+    })
+  });
+
+  const data = await watchRes.json();
+  
+  if (data.error) {
+    throw new Error(`Gmail Watch Error: ${data.error.message}`);
+  }
+
+  // Update profile with historyId
+  const { data: user } = await supabase.auth.getUser();
+  if (user.user) {
+    await supabase
+      .from('profiles')
+      .update({ 
+        metadata: { 
+          gmail_watch: true, 
+          history_id: data.historyId,
+          watch_expires: data.expiration
+        } 
+      })
+      .eq('id', user.user.id);
+  }
+
+  return data;
+}

@@ -21,7 +21,7 @@ import { useData } from '@/contexts/DataContext';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { syncGmailInbox, syncGmailResumes } from '@/services/gmailService';
+import { syncGmailInbox, syncGmailResumes, setupGmailWatch } from '@/services/gmailService';
 
 export default function EmailCenter() {
   const { logs } = useData();
@@ -199,6 +199,26 @@ export default function EmailCenter() {
             title="Refresh List"
           >
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+          </button>
+        </div>
+
+        <div className="px-6 py-4 bg-amber-50/50 border-b border-amber-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Real-time Link: {emails.some(e => e.is_live) ? 'ACTIVE' : 'IDLE'}</span>
+          </div>
+          <button 
+            onClick={async () => {
+              try {
+                await setupGmailWatch();
+                toast.success("Neural Link Established: Monitoring Gmail for real-time events.");
+              } catch (err: any) {
+                toast.error(err.message);
+              }
+            }}
+            className="text-[9px] font-black text-amber-600 bg-white px-3 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-100 transition-all uppercase tracking-tight"
+          >
+            Go Live ⚡
           </button>
         </div>
         
