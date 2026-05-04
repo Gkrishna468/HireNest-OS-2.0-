@@ -97,11 +97,17 @@ export default function IntelligenceCenter() {
 
   async function fetchWorkflowExecutions() {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('workflow_executions')
         .select('*, workflows(name)')
         .order('started_at', { ascending: false })
         .limit(10);
+      
+      if (error && error.message.includes('relation "workflow_executions" does not exist')) {
+        console.warn("Workflow tables not yet created in Supabase.");
+        return;
+      }
+      
       setExecutions(data || []);
     } catch (err) {
       console.error("Executions fetch error:", err);
