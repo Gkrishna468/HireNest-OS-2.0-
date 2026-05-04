@@ -28,7 +28,10 @@ import {
   Settings2,
   Play,
   Pause,
-  CloudLightning
+  CloudLightning,
+  Target,
+  XCircle,
+  FileText
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -65,7 +68,8 @@ export default function IntelligenceCenter() {
   const { logs, jobs, candidates } = useData();
   const navigate = useNavigate();
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
-  const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp' | 'match'>('all');
+  const [executions, setExecutions] = useState<any[]>([]);
+  const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp' | 'match' | 'workflow'>('all');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [leads, setLeads] = useState<DiscoveryLead[]>([]);
@@ -88,7 +92,21 @@ export default function IntelligenceCenter() {
     fetchLeads();
     fetchRevenueMetrics();
     fetchOutreachLogs();
+    fetchWorkflowExecutions();
   }, []);
+
+  async function fetchWorkflowExecutions() {
+    try {
+      const { data } = await supabase
+        .from('workflow_executions')
+        .select('*, workflows(name)')
+        .order('started_at', { ascending: false })
+        .limit(10);
+      setExecutions(data || []);
+    } catch (err) {
+      console.error("Executions fetch error:", err);
+    }
+  }
 
   async function fetchRevenueMetrics() {
     try {
@@ -127,6 +145,63 @@ export default function IntelligenceCenter() {
   async function fetchLeads() {
     const data = await getWarmLeads();
     setLeads(data as any);
+  }
+
+  const [isNeuralReviewing, setIsNeuralReviewing] = useState(false);
+  const [reviewResults, setReviewResults] = useState<any[]>([]);
+  const [isReviewSummaryOpen, setIsReviewSummaryOpen] = useState(false);
+
+  async function handleBulkNeuralReview() {
+    setIsNeuralReviewing(true);
+    setReviewResults([]);
+    toast.info('Starting Neural Review Cycle...', { icon: <BrainCircuit className="animate-pulse" /> });
+    
+    try {
+      // 1. Find candidates without neuralReview
+      const newCandidates = candidates.filter(c => !c.neuralReview);
+      
+      if (newCandidates.length === 0) {
+        toast.info('All candidates already have Neural Reviews.');
+        return;
+      }
+
+      toast.info(`Generating summaries for ${newCandidates.length} new candidates...`);
+
+      const { generateCandidateBriefing } = await import('@/services/briefingService');
+      const { updateCandidate } = await import('@/lib/api/candidates');
+
+      const results = [];
+      for (const candidate of newCandidates) {
+        const briefing = await generateCandidateBriefing(candidate);
+        const reviewText = `${briefing.summary}\n\nStrengths:\n${briefing.strengths.map(s => `- ${s}`).join('\n')}\n\nClient Pitch:\n${briefing.client_pitch}`;
+        
+        await updateCandidate(candidate.id, { neuralReview: reviewText });
+        
+        results.push({
+          candidateName: candidate.name,
+          summary: briefing.summary,
+          strengths: briefing.strengths
+        });
+
+        // Log to Agent Logs
+        await supabase.from('agent_logs').insert({
+          type: 'neural_review',
+          level: 'success',
+          agent_name: 'Nestor Brain',
+          message: `Generated 1-page Neural Review for ${candidate.name}`,
+          metadata: { candidateId: candidate.id }
+        });
+      }
+
+      setReviewResults(results);
+      setIsReviewSummaryOpen(true);
+      toast.success(`Completed Neural Reviews for ${newCandidates.length} candidates.`);
+      fetchOutreachLogs();
+    } catch (err: any) {
+      toast.error('Neural Review cycle failed: ' + err.message);
+    } finally {
+      setIsNeuralReviewing(false);
+    }
   }
 
   async function handleDiscovery() {
@@ -308,6 +383,14 @@ export default function IntelligenceCenter() {
           <p className="text-slate-500 mt-1 font-medium italic">"Welcome, Founder. Currently managing {jobs.length} open requisitions. The pipeline is healthy and synchronized."</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handleBulkNeuralReview}
+            disabled={isNeuralReviewing || loading}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-2xl font-black hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 group"
+          >
+            <BrainCircuit className={cn("w-5 h-5 group-hover:rotate-12 transition-transform", isNeuralReviewing && "animate-spin")} />
+            Neural Review (New)
+          </button>
           <button 
             onClick={runSimulation}
             disabled={loading}
@@ -499,7 +582,7 @@ export default function IntelligenceCenter() {
                 </div>
               </div>
               <div className="flex gap-2">
-                {['all', 'email', 'whatsapp', 'match'].map((t) => (
+                {['all', 'email', 'whatsapp', 'match', 'workflow'].map((t) => (
                   <button
                     key={t}
                     onClick={() => setFilter(t as any)}
@@ -520,6 +603,43 @@ export default function IntelligenceCenter() {
                   <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
                   Calibrating Neural Streams...
                 </div>
+              ) : filter === 'workflow' ? (
+                executions.map((exe) => (
+                  <div key={exe.id} className="p-6 hover:bg-slate-50 transition-all flex items-start justify-between group">
+                    <div className="flex gap-6">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm bg-purple-50 text-purple-600 group-hover:scale-105 transition-transform">
+                        <Activity className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                            Workflow Engine
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 italic">
+                            {format(new Date(exe.started_at), 'MMM dd • HH:mm')}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900 tracking-tight mt-2 italic group-hover:text-indigo-600 transition-colors">
+                          Workflow: {exe.workflows?.name || 'Inbound Processing'}
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium mt-1">
+                          Trigger: {JSON.stringify(exe.trigger_data).substring(0, 100)}...
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <div className={cn(
+                        "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border",
+                        exe.status === 'completed' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                        exe.status === 'running' ? "bg-blue-50 text-blue-600 border-blue-100" :
+                        "bg-red-50 text-red-600 border-red-100"
+                      )}>
+                        {exe.status === 'completed' && <CheckCircle2 className="w-3" />}
+                        {exe.status}
+                      </div>
+                    </div>
+                  </div>
+                ))
               ) : outreachLogs.filter(l => filter === 'all' || l.type === filter).map((log) => (
                 <div key={log.id} className="p-6 hover:bg-slate-50 transition-all flex items-start justify-between group">
                   <div className="flex gap-6">
@@ -599,6 +719,71 @@ export default function IntelligenceCenter() {
           </div>
         </div>
       </div>
+
+      {/* Neural Review Summary Modal */}
+      {isReviewSummaryOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[70] flex items-center justify-center p-4 overflow-hidden">
+          <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+            <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
+               <div>
+                  <h2 className="text-2xl font-black tracking-tight uppercase flex items-center gap-3">
+                    <BrainCircuit className="w-8 h-8 text-indigo-400" />
+                    Neural Review Consolidated
+                  </h2>
+                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Founders Summary • High-Intent Talent Briefing</p>
+               </div>
+               <button 
+                 onClick={() => setIsReviewSummaryOpen(false)}
+                 className="p-2 hover:bg-white/10 rounded-2xl transition-colors"
+               >
+                 <XCircle className="w-8 h-8 text-slate-300" />
+               </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto space-y-8 bg-slate-50/50">
+              {reviewResults.length > 0 ? reviewResults.map((res, i) => (
+                <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative group overflow-hidden">
+                   <div className="absolute top-0 right-0 p-8 opacity-5">
+                      <Target className="w-20 h-20" />
+                   </div>
+                   <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl font-black">
+                        {res.candidateName[0]}
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-black text-slate-900 tracking-tight">{res.candidateName}</h4>
+                        <div className="flex gap-2 mt-1">
+                           {res.strengths.map((s: string) => (
+                             <span key={s} className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase rounded-lg border border-emerald-100">
+                               {s}
+                             </span>
+                           ))}
+                        </div>
+                      </div>
+                   </div>
+                   
+                   <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{res.summary}"</p>
+                   </div>
+                </div>
+              )) : (
+                <div className="py-20 text-center font-black text-slate-300 uppercase tracking-widest italic">
+                  No new reviews generated in this cycle.
+                </div>
+              )}
+            </div>
+            
+            <div className="p-8 bg-white border-t border-slate-100 flex justify-end shrink-0">
+               <button 
+                 onClick={() => setIsReviewSummaryOpen(false)}
+                 className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+               >
+                 Close Briefing
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

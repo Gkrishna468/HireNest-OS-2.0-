@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { callAISecureProxy } from "@/lib/ai";
+import { handleWorkflowTrigger } from "./workflowEngine";
 
 /**
  * GMAIL SERVICE: Enterprise Resume Extraction
@@ -60,6 +61,9 @@ export async function syncGmailInbox() {
     }, { onConflict: 'message_id' });
 
     if (!error) {
+      // 3. TRIGGER WORKFLOW ENGINE
+      await handleWorkflowTrigger({ type: 'email_received', data: email });
+      
       // Mark as processed
       await supabase.from('processing_cache').insert({ source_id: msg.id, type: 'email' });
       syncCount++;

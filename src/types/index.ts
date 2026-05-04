@@ -125,6 +125,7 @@ export interface Candidate {
   notes?: string;
   source: string;
   aiMatchScore?: number;
+  neuralReview?: string;
   userId?: string;
   companyId?: string;
   createdAt: string;
@@ -226,9 +227,57 @@ export interface Message {
 
 export interface AgentLog {
   id: string;
+  agent_name?: string;
   type: string;
   level: 'info' | 'warn' | 'error' | 'success';
   message: string;
+  action?: string;
+  decision?: any;
+  input?: any;
+  result?: any;
   metadata?: any;
   createdAt: string;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  trigger_type: string;
+  is_active: boolean;
+  createdAt: string;
+}
+
+export interface WorkflowStep {
+  id: string;
+  workflow_id: string;
+  step_order: number;
+  step_type: string;
+  config: any;
+  createdAt: string;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  workflow_id: string;
+  trigger_data: any;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  started_at: string;
+  completed_at?: string;
+}
+
+export interface AgentMemory {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  memory: any;
+  updated_at: string;
+}
+
+export interface UsageLog {
+  id: string;
+  user_id: string;
+  action_type: string;
+  cost: number;
+  metadata?: any;
+  created_at: string;
 }

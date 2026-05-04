@@ -30,7 +30,8 @@ import {
   Network,
   Send,
   Loader2,
-  Target
+  Target,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -90,7 +91,13 @@ export default function Candidates() {
     try {
       const result = await generateCandidateBriefing(selectedCandidate);
       setBriefing(result);
-      toast.success('Neural Briefing Generated.');
+      
+      const reviewText = `${result.summary}\n\nStrengths:\n${result.strengths.map(s => `- ${s}`).join('\n')}\n\nClient Pitch:\n${result.client_pitch}`;
+      
+      const { updateCandidate } = await import('@/lib/api/candidates');
+      await updateCandidate(selectedCandidate.id, { neuralReview: reviewText });
+      
+      toast.success('Neural Briefing Generated & Persisted.');
     } catch (err) {
       toast.error('Briefing failed.');
     } finally {
@@ -308,42 +315,63 @@ export default function Candidates() {
                 <div>
                   <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
                     <h3 className="text-lg font-black text-slate-900 tracking-tight">Intelligence Briefing</h3>
-                    <button 
-                      onClick={handleGenerateBriefing}
-                      disabled={isGenerating}
-                      className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-500 transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
-                    >
-                      {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <BrainCircuit className="w-3 h-3" />}
-                      {briefing ? 'Re-Gen Briefing' : 'Gen AI Briefing'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {selectedCandidate.neuralReview && (
+                        <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase rounded-lg border border-emerald-200">
+                          Review Persistent
+                        </span>
+                      )}
+                      <button 
+                        onClick={handleGenerateBriefing}
+                        disabled={isGenerating}
+                        className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-500 transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+                      >
+                        {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <BrainCircuit className="w-3 h-3" />}
+                        {selectedCandidate.neuralReview || briefing ? 'Re-Gen Briefing' : 'Gen AI Briefing'}
+                      </button>
+                    </div>
                   </div>
 
-                  {briefing ? (
+                  {(selectedCandidate.neuralReview || briefing) ? (
                     <motion.div 
                       initial={{ opacity: 0, y: 10 }} 
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-4"
                     >
-                      <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                        <p className="text-sm text-slate-700 leading-relaxed font-medium italic">
-                          "{briefing.summary}"
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {briefing.strengths.map((s, i) => (
-                          <div key={i} className="p-3 bg-white border border-slate-100 shadow-sm rounded-xl flex items-center gap-2">
-                            <Target className="w-3 h-3 text-emerald-500" />
-                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{s}</span>
+                      {briefing ? (
+                        <>
+                          <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                            <p className="text-sm text-slate-700 leading-relaxed font-medium italic">
+                              "{briefing.summary}"
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                      <div className="p-4 bg-slate-900 rounded-2xl text-white">
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                          <Zap className="w-3 h-3" />
-                          Recommended Pitch
-                        </p>
-                        <p className="text-xs leading-relaxed opacity-90">{briefing.client_pitch}</p>
-                      </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {briefing.strengths.map((s, i) => (
+                              <div key={i} className="p-3 bg-white border border-slate-100 shadow-sm rounded-xl flex items-center gap-2">
+                                <Target className="w-3 h-3 text-emerald-500" />
+                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{s}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="p-4 bg-slate-900 rounded-2xl text-white">
+                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                              <Zap className="w-3 h-3" />
+                              Recommended Pitch
+                            </p>
+                            <p className="text-xs leading-relaxed opacity-90">{briefing.client_pitch}</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 relative group overflow-hidden">
+                          <div className="absolute top-0 right-0 p-4 opacity-5">
+                            <FileText className="w-12 h-12" />
+                          </div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Neural Review Summary</p>
+                          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
+                            {selectedCandidate.neuralReview}
+                          </p>
+                        </div>
+                      )}
                     </motion.div>
                   ) : (
                     <p className="text-sm text-slate-600 leading-relaxed italic">
