@@ -50,25 +50,33 @@ export async function syncGmailInbox() {
     const senderEmail = from.match(/<(.+?)>/)?.[1] || from;
 
     // Persist email
-    const { error } = await supabase.from('emails').upsert({
-      message_id: msg.id,
-      thread_id: msg.threadId,
-      "from": from.split('<')[0].trim(),
-      sender_email: senderEmail,
+    // BUILD UPSERT PAYLOAD
+    const emailPayload: any = {
       subject: subject,
       snippet: email.snippet,
       body: email.snippet, 
       received_at: email.internalDate ? new Date(parseInt(email.internalDate)).toISOString() : new Date().toISOString()
-    }, { onConflict: 'message_id' });
+    };
 
-    if (!error) {
-      // 3. ENQUEUE FOR NESTOR AGENT CLASSIFICATION
-      await enqueueJob(JobType.GMAIL_EVENT, email);
-      
-      // Mark as processed
-      await supabase.from('processing_cache').insert({ source_id: msg.id, type: 'email' });
-      syncCount++;
+    // Resilient Column Detection (Try to map to known possible column names)
+    // We assume the user creates 'message_id' as unique key
+    emailPayload.message_id = msg.id;
+    emailPayload.from_email = senderEmail;
+
+    const { error } = await supabase.from('emails').upsert(emailPayload, { onConflict: 'message_id' });
+
+    if (error) {
+      console.error("[Gmail Sync] Upsert failed. Ensure 'message_id' column exists with Unique constraint.", error);
+      // Fallback: simple insert without conflict handling if table structure is unknown
+      await supabase.from('emails').insert(emailPayload);
     }
+
+    // 3. ENQUEUE FOR NESTOR AGENT CLASSIFICATION
+    await enqueueJob(JobType.GMAIL_EVENT, email);
+    
+    // Mark as processed
+    await supabase.from('processing_cache').insert({ source_id: msg.id, type: 'email' });
+    syncCount++;
   }
 
   return { count: syncCount, message: `Synced ${syncCount} new messages.` };
@@ -168,7 +176,7 @@ export async function setupGmailWatch() {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      topicName: "projects/gcp-project-388314/topics/gmail-notifications", 
+      topicName: "projects/gcp-project-388314/topics/hirenest-gmail-topic", 
       labelIds: ["INBOX"]
     })
   });

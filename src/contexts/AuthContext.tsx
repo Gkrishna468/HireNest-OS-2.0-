@@ -112,24 +112,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    // STRATEGIC BYPASS: Mock users for dev speed
-    if (
-      (email === 'gopal@hirenestworkforce.com' && password === 'founding2026') ||
-      (email === 'admin@hirenest.com' && password === 'admin123')
-    ) {
-      const execUser: User = { 
-        id: '00000000-0000-4000-a000-000000000000', 
-        email, 
-        name: email === 'admin@hirenest.com' ? 'Admin User' : 'Gopala Krishna', 
-        role: 'admin', 
-        status: 'active' 
-      };
-      setUser(execUser);
-      localStorage.setItem('hirenest_exec_session', JSON.stringify(execUser));
-      toast.success('Executive access granted');
-      return;
-    }
-
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase is not configured. Please check your settings.');
     }
