@@ -47,6 +47,20 @@ export default function AIMatching() {
     if (!selectedJob) return;
     setIsMatching(true);
     
+    // 1. Ensure Job has structured skills for high-fidelity matching
+    let currentJob = { ...selectedJob };
+    if (!selectedJob.skills || selectedJob.skills.length === 0) {
+      toast.loading('Analyzing JD technical nodes...', { duration: 1500 });
+      const { extractJobSkills } = await import('@/services/intelligenceService');
+      const extractedSkills = await extractJobSkills(selectedJob.description);
+      if (extractedSkills.length > 0) {
+        currentJob.skills = extractedSkills;
+        // Silently update DB for future matches
+        await supabase.from('jobs').update({ skills: extractedSkills }).eq('id', selectedJob.id);
+        setSelectedJob(currentJob);
+      }
+    }
+
     // Combine structural candidates and unstructured resumes
     const resumePool = resumes.map(r => ({
       id: r.id,
@@ -64,7 +78,7 @@ export default function AIMatching() {
     // Create an agent log for this "Autonomous" activity
     await supabase.from('agent_logs').insert({
       type: 'matching',
-      message: `Neural Engine scanning ${totalPool.length} profiles (CRM + Resumes) for: ${selectedJob.title}`,
+      message: `Neural Engine scanning ${totalPool.length} profiles (CRM + Resumes) for: ${currentJob.title}`,
       level: 'info',
       status: 'running'
     });
@@ -75,7 +89,7 @@ export default function AIMatching() {
       // Parallel evaluation
       const res = await Promise.all(totalPool.map(async (c) => {
         try {
-          const evaluation = await scoreCandidateForJob(selectedJob, c);
+          const evaluation = await scoreCandidateForJob(currentJob, c);
           return {
             ...c,
             score: evaluation.score,
@@ -96,7 +110,7 @@ export default function AIMatching() {
       // Final log entry
       await supabase.from('agent_logs').insert({
         type: 'matching',
-        message: `Found ${finalMatches.length} potential matches for ${selectedJob.title}. Top score: ${finalMatches[0]?.score || 0}%`,
+        message: `Found ${finalMatches.length} potential matches for ${currentJob.title}. Top score: ${finalMatches[0]?.score || 0}%`,
         level: finalMatches.length > 0 ? 'success' : 'warning',
         status: 'finished'
       });

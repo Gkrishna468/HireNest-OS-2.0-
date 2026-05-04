@@ -411,6 +411,53 @@ export default function Vendors() {
                         />
                       </div>
                     </div>
+
+                    <div className="space-y-4 pt-6 border-t border-slate-100">
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        <Users className="w-4 h-4 text-indigo-600" />
+                        Modify Neural SPCOs
+                      </h3>
+                      <div className="space-y-4">
+                        {(editForm.spcos || [{ name: '', role: 'Founder/Head', email: '', phone: '' }]).map((spco: any, index: number) => (
+                          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-white border border-slate-200 rounded-2xl">
+                            <input
+                              type="text"
+                              value={spco.name}
+                              placeholder="Name"
+                              onChange={(e) => {
+                                const newSpcos = [...(editForm.spcos || [])];
+                                newSpcos[index] = { ...spco, name: e.target.value };
+                                setEditForm({ ...editForm, spcos: newSpcos });
+                              }}
+                              className="px-3 py-2 border border-slate-100 rounded-xl text-xs outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="email"
+                              value={spco.email}
+                              placeholder="Email"
+                              onChange={(e) => {
+                                const newSpcos = [...(editForm.spcos || [])];
+                                newSpcos[index] = { ...spco, email: e.target.value };
+                                setEditForm({ ...editForm, spcos: newSpcos });
+                              }}
+                              className="px-3 py-2 border border-slate-100 rounded-xl text-xs outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="tel"
+                              value={spco.phone}
+                              placeholder="Phone"
+                              onChange={(e) => {
+                                const newSpcos = [...(editForm.spcos || [])];
+                                newSpcos[index] = { ...spco, phone: e.target.value };
+                                setEditForm({ ...editForm, spcos: newSpcos });
+                              }}
+                              className="px-3 py-2 border border-slate-100 rounded-xl text-xs outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <button 
                       type="submit"
                       className="w-full py-4 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-2xl flex items-center justify-center gap-3"

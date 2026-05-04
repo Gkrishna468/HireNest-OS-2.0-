@@ -33,11 +33,20 @@ export async function createVendor(data: any) {
   });
 }
 
-export async function updateVendor(id: string, updates: Partial<Vendor>) {
-  const payload: any = {};
-  if (updates.name !== undefined) payload.name = updates.name;
-  if (updates.company !== undefined) payload.company = updates.company;
+export async function updateVendor(id: string, updates: any) {
+  const payload: any = { ...updates };
+  
+  // Map camelCase to snake_case if existing
   if (updates.isRecruiter !== undefined) payload.is_recruiter = updates.isRecruiter;
+  if (updates.recruiterCompany !== undefined) payload.recruiter_company = updates.recruiterCompany;
+  if (updates.vendorCode !== undefined) payload.vendor_code = updates.vendorCode;
+  
+  // Remove fields that shouldn't be updated or cause errors
+  delete payload.id;
+  delete payload.created_at;
+  delete payload.isRecruiter;
+  delete payload.recruiterCompany;
+  delete payload.vendorCode;
   
   return safeUpdate('vendors', id, payload);
 }

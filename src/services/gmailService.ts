@@ -92,9 +92,35 @@ export async function syncGmailInbox() {
           }`);
        
        const aiMeta = JSON.parse(aiResponse.replace(/```json|```/g, ''));
+       
+       // UNIFIED BRAIN: Auto-match against active jobs if this is an application
+       if (aiMeta.intent === 'candidate_application') {
+         const { data: openJobs } = await supabase.from('jobs').select('*').eq('status', 'open').limit(5);
+         if (openJobs && openJobs.length > 0) {
+           const { scoreCandidateForJob } = await import('./intelligenceService');
+           let bestMatch = null;
+           for (const job of openJobs) {
+             const match = await scoreCandidateForJob(job, aiMeta.extracted);
+             if (!bestMatch || match.score > bestMatch.score) {
+               bestMatch = { job, match };
+             }
+           }
+           
+           if (bestMatch && bestMatch.match.score >= 50) {
+             aiMeta.best_job_match = {
+               job_title: bestMatch.job.title,
+               score: bestMatch.match.score,
+               reasoning: bestMatch.match.reasoning
+             };
+             // Upgrade the reply with match context
+             aiMeta.reply = `Hi ${aiMeta.extracted.name || 'there'},\n\nI've analyzed your profile against our open roles. You look like a ${bestMatch.match.score}% match for our ${bestMatch.job.title} position! ${bestMatch.match.reasoning}\n\nOur team is reviewing your details now.`;
+           }
+         }
+       }
+
        await supabase.from('emails').update({ ai_metadata: aiMeta }).eq('message_id', msg.id);
     } catch (e) {
-      console.error("AI Enrichment failed", e);
+      console.error("AI Enrichment and Unified Matching failed", e);
     }
 
     await enqueueJob(JobType.GMAIL_EVENT, email);

@@ -88,16 +88,31 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
 }
 
 /**
+ * Extracts structured technical skills from a raw Job Description text.
+ */
+export async function extractJobSkills(jdText: string): Promise<string[]> {
+  const prompt = `
+    Extract ONLY a comma-separated list of technical skills and tools from this Job Description.
+    Focus on niche technologies and core frameworks.
+    Ignore soft skills.
+    JD: ${jdText}
+    Return ONLY the list.
+  `;
+  try {
+    const raw = await callAISecureProxy(prompt);
+    return raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
  * Neural Matcher: Semantic comparison between Job and Candidate
  */
 export async function scoreCandidateForJob(job: any, candidate: any): Promise<MatchResult> {
   const prompt = `
-    Act as a Senior Strategic Recruitment Director & Technical QA Chief. Perform a deep neural match between the job requirement and the candidate profile.
-    
-    CRITICAL CONSTRAINT: 
-    - Match PURELY on Technical Skills (70%) and relevant Experience/Tenure (30%).
-    - IGNORE location, phone, email, and candidate name in the matching logic.
-    - Be strict about niche skills mentioned in the JD.
+    Act as a Senior Strategic Recruitment Director & Technical QA Chief. Perform a deep neural match on PURELY Technical Skills (70%) and relevant Experience/Tenure (30%).
+    IGNORE location, phone, email, and candidate names. Be strict about niche skills mentioned in the JD.
     
     JOB REQUISITION:
     - Title: ${job.title}
@@ -120,7 +135,7 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
       "score": number,
       "reasoning": "string",
       "gaps": ["Detailed technical gap 1", "Specific experience mismatch 2"],
-      "recommendation": "shortlist" | "reserve" | "reject"
+      "recommendation": "shortlist"
     }
   `;
 
@@ -130,7 +145,7 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
     return JSON.parse(cleanJson);
   } catch (error) {
     console.error("AI Matching Error:", error);
-    return { score: 0, reasoning: "Evaluation failed", gaps: ["Neural engine timeout"], recommendation: 'reject' };
+    return { score: 0, reasoning: "Inference failed technically", gaps: ["Neural sync failure"], recommendation: 'reject' };
   }
 }
 

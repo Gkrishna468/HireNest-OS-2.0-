@@ -139,16 +139,31 @@ export default function Jobs() {
     setJobMatches([]);
     
     try {
+      // 1. Ensure Job has structured skills for high-fidelity matching
+      let currentJob = { ...job };
+      if (!job.skills || job.skills.length === 0) {
+        toast.loading('Extracting technical nodes from JD...', { duration: 1500 });
+        const { extractJobSkills } = await import('@/services/intelligenceService');
+        const extractedSkills = await extractJobSkills(job.description);
+        if (extractedSkills.length > 0) {
+          currentJob.skills = extractedSkills;
+          // Silently update DB for future matches
+          await supabase.from('jobs').update({ skills: extractedSkills }).eq('id', job.id);
+        }
+      }
+
+      // 2. Fetch candidates for matching
       const { data: candidatesPool, error } = await supabase
         .from('candidates')
         .select('*')
-        .limit(20); // Small batch for live detail
+        .limit(20); 
 
       if (error) throw error;
 
       const results = [];
       for (const candidate of safeArray(candidatesPool)) {
-        const match = await scoreCandidateForJob(job, candidate);
+        // Match using the (potentially updated) job profile
+        const match = await scoreCandidateForJob(currentJob, candidate);
         results.push({
           candidate,
           ...match
@@ -157,7 +172,8 @@ export default function Jobs() {
 
       setJobMatches(results.sort((a, b) => b.score - a.score));
     } catch (err) {
-      toast.error('AI Matching failed');
+      console.error("Neural Match Error:", err);
+      toast.error('AI Matching failed. System trace logged.');
     } finally {
       setIsMatching(false);
     }

@@ -70,6 +70,7 @@ export interface Vendor {
   vendorCode?: string;
   userId?: string;
   companyId?: string;
+  spcos?: { name: string; role: string; email: string; phone: string }[];
   createdAt: string;
   updatedAt: string;
 }
