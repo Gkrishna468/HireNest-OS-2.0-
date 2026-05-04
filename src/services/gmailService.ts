@@ -53,11 +53,12 @@ export async function syncGmailInbox() {
     const { error } = await supabase.from('emails').upsert({
       message_id: msg.id,
       thread_id: msg.threadId,
-      from: from.split('<')[0].trim(),
+      "from": from.split('<')[0].trim(),
       sender_email: senderEmail,
       subject: subject,
       snippet: email.snippet,
-      body: email.snippet, // In real app, we would parse multipart body
+      body: email.snippet, 
+      received_at: email.internalDate ? new Date(parseInt(email.internalDate)).toISOString() : new Date().toISOString()
     }, { onConflict: 'message_id' });
 
     if (!error) {
@@ -167,7 +168,7 @@ export async function setupGmailWatch() {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      topicName: "projects/lxunyqrcajytliwllyox/topics/gmail-notifications", // User to update in console
+      topicName: "projects/gcp-project-388314/topics/gmail-notifications", 
       labelIds: ["INBOX"]
     })
   });

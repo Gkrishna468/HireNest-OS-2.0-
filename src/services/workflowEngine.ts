@@ -61,7 +61,12 @@ async function handleGmailIngress(jobId: string, payload: any) {
       .eq('email', email)
       .maybeSingle();
 
-    if (!profile) throw new Error(`Profile not found for ${email}`);
+    if (!profile) {
+      console.warn(`[Ingress] Profile not found for ${email}. Creating a guest profile or returning.`);
+      // If profile missing, we might want to return or create one
+      // But for now let's just abort to avoid null pointer
+      throw new Error(`Profile not found for ${email}`);
+    }
 
     // 2. Get Access Token (assuming stored in metadata)
     // In a real production app, we would use a refresh token here.
@@ -190,7 +195,7 @@ async function agentExecute(jobId: string, payload: any) {
   switch (action.type) {
     case 'create_candidate':
       await supabase.from('candidates').insert({
-        full_name: action.payload.name,
+        name: action.payload.name,
         email: original_data.from.match(/<(.+)>/)?.[1] || original_data.from,
         source: 'Nestor Ingestion',
         experience: action.payload.experience_summary || original_data.snippet
