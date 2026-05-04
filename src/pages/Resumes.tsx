@@ -49,15 +49,16 @@ export default function Resumes() {
   }, []);
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
     setIsUploading(true);
-    const toastId = toast.loading('Uploading and analyzing resume...');
+    const toastId = toast.loading(`Processing ${files.length} resume(s)...`);
 
     try {
-      const fileName = `${Date.now()}-${file.name}`;
-      const filePath = `resumes/${fileName}`;
+      for (const file of files) {
+        const fileName = `${Date.now()}-${file.name}`;
+        const filePath = `resumes/${fileName}`;
 
       // 1. Upload to Supabase Storage ('resumes' bucket)
       const { error: uploadError } = await supabase.storage
@@ -149,6 +150,8 @@ export default function Resumes() {
         toast.info('Resume uploaded. AI extraction throttled, check manually.', { id: toastId });
       }
 
+      }
+      toast.success(`Successfully processed ${files.length} profiles!`, { id: toastId });
       fetchResumes();
       refreshAll();
     } catch (err: any) {
@@ -170,6 +173,7 @@ export default function Resumes() {
         <div className="flex items-center gap-3">
           <input
             type="file"
+            multiple
             ref={fileInputRef}
             onChange={handleUpload}
             className="hidden"

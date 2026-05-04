@@ -72,6 +72,31 @@ export async function syncGmailInbox() {
     }
 
     // 3. ENQUEUE FOR NESTOR AGENT CLASSIFICATION
+    // Trigger real AI analysis now to populate the UI metadata
+    try {
+      const aiResponse = await callAISecureProxy(`Analyze this email for a recruitment CRM.
+          Subject: ${subject}
+          Snippet: ${email.snippet}
+          From: ${from}
+          
+          Return JSON:
+          {
+            "intent": "candidate_application | job_query | outreach | spam",
+            "score": number (0-100 matching lead quality),
+            "extracted": {
+              "name": "full name",
+              "skills": ["skill1", "skill2"],
+              "experience": "years/summary"
+            },
+            "reply": "draft response"
+          }`);
+       
+       const aiMeta = JSON.parse(aiResponse.replace(/```json|```/g, ''));
+       await supabase.from('emails').update({ ai_metadata: aiMeta }).eq('message_id', msg.id);
+    } catch (e) {
+      console.error("AI Enrichment failed", e);
+    }
+
     await enqueueJob(JobType.GMAIL_EVENT, email);
     
     // Mark as processed

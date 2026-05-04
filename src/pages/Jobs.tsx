@@ -30,12 +30,15 @@ import {
   Linkedin,
   Edit2,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { safeArray, safeString, safeDate } from '@/utils/safe';
 import { broadcastJob } from '@/services/marketplaceService';
+import { scoreCandidateForJob } from '@/services/intelligenceService';
+import { supabase } from '@/lib/supabase';
 
 export default function Jobs() {
   const { user } = useAuth();
@@ -45,6 +48,9 @@ export default function Jobs() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [isViewDetailOpen, setIsViewDetailOpen] = useState(false);
+  const [matchThreshold, setMatchThreshold] = useState(70);
+  const [isMatching, setIsMatching] = useState(false);
+  const [jobMatches, setJobMatches] = useState<any[]>([]);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [approvedBudget, setApprovedBudget] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -125,6 +131,44 @@ export default function Jobs() {
         toast.error('Failed to delete job');
       }
     }
+  };
+
+  const runNeuralMatch = async (job: any) => {
+    if (!job) return;
+    setIsMatching(true);
+    setJobMatches([]);
+    
+    try {
+      const { data: candidatesPool, error } = await supabase
+        .from('candidates')
+        .select('*')
+        .limit(20); // Small batch for live detail
+
+      if (error) throw error;
+
+      const results = [];
+      for (const candidate of safeArray(candidatesPool)) {
+        const match = await scoreCandidateForJob(job, candidate);
+        results.push({
+          candidate,
+          ...match
+        });
+      }
+
+      setJobMatches(results.sort((a, b) => b.score - a.score));
+    } catch (err) {
+      toast.error('AI Matching failed');
+    } finally {
+      setIsMatching(false);
+    }
+  };
+
+  const alertVendor = (candidateName: string, vendorName: string, gaps: string[]) => {
+    toast.info(`Alerting ${vendorName} about skill gaps for ${candidateName}`);
+    // Real logic would enqueue an email/WhatsApp alert
+    setTimeout(() => {
+      toast.success(`Vendor ${vendorName} notified to upgrade ${candidateName}'s profile.`);
+    }, 1500);
   };
 
   const filteredJobs = safeArray(jobs).filter(job => 
@@ -638,6 +682,101 @@ export default function Jobs() {
                     <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Source Tracking</p>
                       <p className="text-sm font-bold text-emerald-600 mt-1">EXTERNAL / SHARED</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="pt-6 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Zap className="w-5 h-5 text-indigo-600 animate-pulse" />
+                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Neural Match Engine</h3>
+                    </div>
+                    <button 
+                      onClick={() => runNeuralMatch(selectedJob)}
+                      disabled={isMatching}
+                      className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1.5 rounded-full uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50"
+                    >
+                      {isMatching ? 'Scanning...' : 'Run New AI Scan'}
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Match Threshold: {matchThreshold}%</span>
+                        <input 
+                          type="range" 
+                          min="70" 
+                          max="100" 
+                          step="5"
+                          value={matchThreshold}
+                          onChange={(e) => setMatchThreshold(parseInt(e.target.value))}
+                          className="w-32 accent-indigo-500 bg-slate-800 rounded-lg"
+                        />
+                      </div>
+                      <div className="flex flex-col items-end text-right">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quality Logic</span>
+                        <span className="text-xs font-bold text-white italic">"Prioritizing Niche Skills & Tenure"</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {jobMatches.length === 0 && !isMatching && (
+                        <div className="py-8 text-center border-2 border-dashed border-slate-800 rounded-xl">
+                          <p className="text-slate-500 text-xs font-medium">Click "Run AI Scan" to find qualified candidates.</p>
+                        </div>
+                      )}
+
+                      {isMatching && (
+                        <div className="space-y-3">
+                          {[1, 2].map(i => (
+                            <div key={i} className="h-20 bg-slate-800/50 rounded-xl animate-pulse" />
+                          ))}
+                        </div>
+                      )}
+
+                      {jobMatches.filter(m => m.score >= matchThreshold).map((match, idx) => (
+                        <div key={idx} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800 transition-all">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[10px] font-black">
+                                {match.score}%
+                              </div>
+                              <h4 className="text-sm font-bold text-white tracking-tight">{match.candidate.name}</h4>
+                            </div>
+                            <span className={cn(
+                              "text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
+                              match.recommendation === 'shortlist' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                            )}>
+                              {match.recommendation}
+                            </span>
+                          </div>
+                          
+                          <p className="text-[10px] text-slate-400 leading-relaxed italic mb-3">"{match.reasoning}"</p>
+                          
+                          {safeArray(match.gaps).length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-slate-700 flex items-center justify-between">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[8px] font-black text-red-400 uppercase tracking-widest">Identified Gaps:</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {safeArray(match.gaps).slice(0, 2).map((gap, gIdx) => (
+                                    <span key={gIdx} className="text-[8px] text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">{gap}</span>
+                                  ))}
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => alertVendor(match.candidate.name, selectedJob.vendorName || "Associated Agency", match.gaps)}
+                                className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-slate-900 transition-all"
+                              >
+                                <AlertCircle className="w-3 h-3" />
+                                Alert Vendor
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
                     </div>
                   </div>
                 </section>

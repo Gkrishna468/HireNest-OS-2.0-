@@ -25,7 +25,7 @@ import FollowUps from './pages/FollowUps';
 import DealRoom from './pages/DealRoom';
 import ExecSuite from './pages/ExecSuite';
 import IntelligenceCenter from './pages/IntelligenceCenter';
-import EmailCenter from './pages/EmailCenter';
+import { EmailCenter } from './pages/EmailCenter';
 import WhatsAppCenter from './pages/WhatsAppCenter';
 import CollaborationHub from './pages/CollaborationHub';
 import Marketplace from './pages/Marketplace';

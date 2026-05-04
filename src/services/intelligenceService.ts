@@ -50,7 +50,8 @@ export interface MatchResult {
  */
 export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
   const prompt = `
-    Analyze the following resume text and extract structured information.
+    Analyze the following resume text and extract structured information for a neural recruitment engine.
+    Focus strictly on skills, experience, and professional identity.
     Return ONLY a JSON object with this structure:
     {
       "name": "full name",
@@ -58,9 +59,9 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
       "phone": "phone number",
       "currentTitle": "current or most recent job title",
       "skills": ["skill1", "skill2"],
-      "experience": "brief summary of years and key roles",
+      "experience": "brief summary of total years and key roles",
       "education": "highest degree and institution",
-      "summary": "professional summary"
+      "summary": "professional summary focusing on technical depth"
     }
     
     TEXT:
@@ -91,23 +92,27 @@ export async function parseResumeWithAI(text: string): Promise<ParsedResume> {
  */
 export async function scoreCandidateForJob(job: any, candidate: any): Promise<MatchResult> {
   const prompt = `
-    Act as a Senior Strategic Recruitment Director. Perform a deep neural match between the job requirement and the candidate profile.
+    Act as a Senior Strategic Recruitment Director & Technical QA Chief. Perform a deep neural match between the job requirement and the candidate profile.
+    
+    CRITICAL CONSTRAINT: 
+    - Match PURELY on Technical Skills (70%) and relevant Experience/Tenure (30%).
+    - IGNORE location, phone, email, and candidate name in the matching logic.
+    - Be strict about niche skills mentioned in the JD.
     
     JOB REQUISITION:
     - Title: ${job.title}
-    - Critical Skills: ${job.skills?.join(", ")}
-    - Core Responsibilities: ${job.description}
+    - Critical Niche Skills: ${job.skills?.join(", ")}
+    - Core Technical Responsibilities: ${job.description}
     
     CANDIDATE PROFILE:
-    - Name: ${candidate.name}
     - Current/Recent Role: ${candidate.currentTitle || candidate.current_title}
-    - Declared Skills: ${candidate.skills?.join(", ")}
-    - Career Summary: ${candidate.summary || candidate.experience}
+    - Declared Technical Skills: ${candidate.skills?.join(", ")}
+    - Career Summary/Experience: ${candidate.summary || candidate.experience}
     
     YOUR TASK:
-    1. Calculate a conservative score (0-100).
-    2. Provide a 'Strategic Reasoning' (approx 3 sentences) explaining the nuance of the match.
-    3. Identify 3-5 specific 'Gaps'. Be granular: mention specific missing libraries, architectural experience mismatches, or domain knowledge deficits.
+    1. Calculate a conservative score (0-100). If niche skills are missing, the score MUST be below 70.
+    2. Provide a 'Strategic Reasoning' (approx 3 sentences) explaining the technical overlap.
+    3. Identify 3-5 specific 'Gaps'. Mention EXACT missing skills from the JD.
     4. Categorize recommending as Shortlist, Reserve (potential with training), or Reject.
 
     Return ONLY a structural JSON object:

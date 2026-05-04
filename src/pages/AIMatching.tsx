@@ -176,9 +176,8 @@ export default function AIMatching() {
             </h3>
             <div className="space-y-3 relative z-10">
               {[
-                { label: 'Skill Overlap', weight: '70%', status: 'active' },
-                { label: 'Role Context', weight: '20%', status: 'active' },
-                { label: 'Location Fit', weight: '10%', status: 'active' },
+                { label: 'Technical Skills', weight: '70%', status: 'active' },
+                { label: 'Core Experience', weight: '30%', status: 'active' },
               ].map(w => (
                 <div key={w.label} className="flex items-center justify-between text-[10px]">
                   <span className="text-slate-400 font-bold uppercase tracking-widest">{w.label}</span>
@@ -240,8 +239,6 @@ export default function AIMatching() {
                               <Clock className="w-3.5 h-3.5" />
                               {match.yearsExperience} yrs exp
                             </span>
-                            <span className="text-slate-300">|</span>
-                            <span>{match.location}</span>
                           </div>
                         </div>
                         <button className="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all group/btn">

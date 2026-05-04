@@ -15,18 +15,21 @@ export async function getVendors(): Promise<Vendor[]> {
   return data.map(sanitizeVendor);
 }
 
-export async function createVendor(data: Partial<Vendor>) {
+export async function createVendor(data: any) {
   return safeInsert('vendors', {
     name: data.name || '',
     type: data.type || 'vendor',
     company: data.company || '',
     email: data.email || '',
     phone: data.phone || '',
+    whatsapp: data.whatsapp || '',
     location: data.location || '',
     specialization: data.specialization || [],
     is_recruiter: data.isRecruiter || false,
     recruiter_company: data.recruiterCompany || '',
     vendor_code: data.vendorCode || '',
+    website: data.website || '',
+    spcos: data.spcos || []
   });
 }
 

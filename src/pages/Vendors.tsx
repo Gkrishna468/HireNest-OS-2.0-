@@ -60,7 +60,12 @@ export default function Vendors() {
     isRecruiter: false,
     recruiterCompany: '',
     website: '',
-    specialization: ''
+    specialization: '',
+    spcos: [
+      { name: '', role: 'Founder/Head', email: '', phone: '' },
+      { name: '', role: 'Delivery Head', email: '', phone: '' },
+      { name: '', role: 'Account Manager', email: '', phone: '' }
+    ]
   });
 
   const [editForm, setEditForm] = useState<Partial<Vendor>>({});
@@ -88,6 +93,7 @@ export default function Vendors() {
       if (typeof addVendor === 'function') {
         const payload = {
           ...formData,
+          name: formData.spcos[0].name || formData.name, // Fallback to first SpCo name
           specialization: formData.specialization.split(',').map(s => s.trim()).filter(Boolean),
           type: (formData.isRecruiter ? 'recruiter' : 'vendor') as any
         };
@@ -97,7 +103,12 @@ export default function Vendors() {
         setForm({ 
           name: '', company: '', email: '', phone: '', whatsapp: '', location: '', 
           type: 'vendor', isRecruiter: false, recruiterCompany: '', 
-          website: '', specialization: '' 
+          website: '', specialization: '',
+          spcos: [
+            { name: '', role: 'Founder/Head', email: '', phone: '' },
+            { name: '', role: 'Delivery Head', email: '', phone: '' },
+            { name: '', role: 'Account Manager', email: '', phone: '' }
+          ]
         });
       }
     } catch (err) {
@@ -586,7 +597,67 @@ export default function Vendors() {
                       className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-3xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all font-medium"
                     />
                   </div>
+                </div>
 
+                {/* Neural SPCOs Section */}
+                <div className="space-y-6 pt-6 border-t border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5 text-indigo-600" />
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Neural SPCOs (Points of Contact)</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-6">
+                    {formData.spcos.map((spco, index) => (
+                      <div key={index} className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-200 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black text-indigo-600 bg-white px-4 py-1.5 rounded-full border border-indigo-100 uppercase tracking-widest">
+                            {index === 0 ? "Mandatory: FOUNDER / HEAD" : `Optional Node: ${spco.role}`}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <input
+                            type="text"
+                            placeholder="Full Name"
+                            className="bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm outline-none focus:border-indigo-500 font-medium"
+                            value={spco.name}
+                            onChange={(e) => {
+                              const newSpcos = [...formData.spcos];
+                              newSpcos[index].name = e.target.value;
+                              setForm({ ...formData, spcos: newSpcos });
+                            }}
+                            required={index === 0}
+                          />
+                          <input
+                            type="email"
+                            placeholder="Email Interface"
+                            className="bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm outline-none focus:border-indigo-500 font-medium"
+                            value={spco.email}
+                            onChange={(e) => {
+                              const newSpcos = [...formData.spcos];
+                              newSpcos[index].email = e.target.value;
+                              setForm({ ...formData, spcos: newSpcos });
+                            }}
+                            required={index === 0}
+                          />
+                          <input
+                            type="tel"
+                            placeholder="Phone Frequency"
+                            className="bg-white border border-slate-200 px-5 py-3 rounded-2xl text-sm outline-none focus:border-indigo-500 font-medium"
+                            value={spco.phone}
+                            onChange={(e) => {
+                              const newSpcos = [...formData.spcos];
+                              newSpcos[index].phone = e.target.value;
+                              setForm({ ...formData, spcos: newSpcos });
+                            }}
+                            required={index === 0}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
                   <div className="md:col-span-2 flex items-center gap-4 p-5 bg-slate-50 rounded-[2rem] border border-slate-200">
                     <input
                       id="isRecruiter"
