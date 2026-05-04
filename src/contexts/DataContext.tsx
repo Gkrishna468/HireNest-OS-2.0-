@@ -7,7 +7,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useAuth } from './AuthContext';
 import { getClients, createClient, updateClient } from '@/lib/api/clients';
 import { getVendors, createVendor, updateVendor } from '@/lib/api/vendors';
-import { getJobs, createJob, approveJob } from '@/lib/api/jobs';
+import { getJobs, createJob, updateJob, deleteJob, approveJob } from '@/lib/api/jobs';
 import { getAllCandidates, createCandidate, updateCandidate, deleteCandidate } from '@/lib/api/candidates';
 import type { Client, Vendor, Job, Candidate, AgentLog, Deal } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -28,6 +28,8 @@ interface DataContextType {
   addVendor: (data: Partial<Vendor>) => Promise<void>;
   updateVendor: (id: string, data: Partial<Vendor>) => Promise<void>;
   addJob: (data: Partial<Job>) => Promise<void>;
+  updateJob: (id: string, data: Partial<Job>) => Promise<void>;
+  deleteJob: (id: string) => Promise<void>;
   addCandidate: (data: Partial<Candidate>) => Promise<void>;
   updateCandidate: (id: string, data: Partial<Candidate>) => Promise<void>;
   updateCandidateStatus: (id: string, stage: Candidate['stage'], status?: string) => Promise<void>;
@@ -207,6 +209,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateJobData = async (id: string, data: Partial<Job>) => {
+    try {
+      await updateJob(id, data);
+      toast.success('Job updated successfully.');
+      await refreshAll();
+    } catch (err: any) {
+      console.error('Update job failed:', err);
+      toast.error('Update failed');
+    }
+  };
+
+  const deleteJobData = async (id: string) => {
+    try {
+      await deleteJob(id);
+      toast.success('Job deleted.');
+      await refreshAll();
+    } catch (err: any) {
+      console.error('Delete job failed:', err);
+      toast.error('Delete failed');
+    }
+  };
+
   const addCandidate = async (data: Partial<Candidate>) => {
     try {
       await createCandidate(data);
@@ -239,7 +263,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       refreshAll, 
       addClient, updateClient: updateClientData,
       addVendor, updateVendor: updateVendorData,
-      addJob, 
+      addJob, updateJob: updateJobData, deleteJob: deleteJobData,
       addCandidate, updateCandidate: updateCandidateData,
       updateCandidateStatus, approveJobWithBudget
     }}>

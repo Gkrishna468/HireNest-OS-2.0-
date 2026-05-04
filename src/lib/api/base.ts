@@ -126,6 +126,7 @@ export const sanitizeJob = (j: any): Job => ({
   approvalStatus: (j.approval_status || 'pending') as any,
   clientId: safeString(j.client_id),
   clientName: safeString(j.client_name),
+  vendorName: safeString(j.vendor_name),
   userId: safeString(j.user_id),
   companyId: safeString(j.company_id),
   closedDate: safeString(j.closed_date),

@@ -27,7 +27,10 @@ import {
   Copy,
   Share2,
   MessageCircle,
-  Linkedin
+  Linkedin,
+  Edit2,
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -36,13 +39,16 @@ import { broadcastJob } from '@/services/marketplaceService';
 
 export default function Jobs() {
   const { user } = useAuth();
-  const { jobs, loading, approveJobWithBudget, addJob, clients, userProfile } = useData();
+  const { jobs, loading, approveJobWithBudget, addJob, updateJob, deleteJob, clients, userProfile } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [isViewDetailOpen, setIsViewDetailOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [approvedBudget, setApprovedBudget] = useState('');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
   const [newJob, setNewJob] = useState({
     title: '',
     clientName: '',
@@ -51,8 +57,11 @@ export default function Jobs() {
     type: 'Full-time',
     openings: 1,
     description: '',
-    skills: ''
+    skills: '',
+    vendorName: ''
   });
+
+  const [editJob, setEditJob] = useState<any>(null);
 
   // Derived user type
   const isAdmin = user?.role === 'admin' || user?.email === 'gopal@hirenestworkforce.com';
@@ -69,7 +78,6 @@ export default function Jobs() {
       };
 
       await addJob(jobData);
-      toast.success('Job created successfully');
       setIsModalOpen(false);
       setNewJob({
         title: '',
@@ -79,10 +87,43 @@ export default function Jobs() {
         type: 'Full-time',
         openings: 1,
         description: '',
-        skills: ''
+        skills: '',
+        vendorName: ''
       });
     } catch (err: any) {
       toast.error(err.message || 'Failed to create job');
+    }
+  };
+
+  const handleUpdateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editJob) return;
+    
+    try {
+      const jobData = {
+        ...editJob,
+        skills: typeof editJob.skills === 'string' 
+          ? editJob.skills.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : editJob.skills
+      };
+
+      await updateJob(editJob.id, jobData);
+      setIsEditModalOpen(false);
+      setIsViewDetailOpen(false);
+      setEditJob(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update job');
+    }
+  };
+
+  const handleDeleteJob = async (id: string) => {
+    if (confirm('Are you sure you want to delete this job?')) {
+      try {
+        await deleteJob(id);
+        setActiveMenuId(null);
+      } catch (err) {
+        toast.error('Failed to delete job');
+      }
     }
   };
 
@@ -168,13 +209,70 @@ export default function Jobs() {
                   <div className={cn("px-2.5 py-1 text-xs font-bold rounded-full border", getStatusColor(job.status))}>
                     {job.status.toUpperCase()}
                   </div>
-                  <button className="text-slate-300 hover:text-slate-600 transition-colors">
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
+                  <div className="relative">
+                    <button 
+                      onClick={() => setActiveMenuId(activeMenuId === job.id ? null : job.id)}
+                      className="text-slate-300 hover:text-slate-600 transition-colors p-1"
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                    {activeMenuId === job.id && (
+                      <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 z-10 py-1 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                        <button 
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setIsViewDetailOpen(true);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <Eye className="w-4 h-4 text-slate-400" />
+                          View Details
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditJob({
+                              ...job,
+                              skills: safeArray(job.skills).join(', ')
+                            });
+                            setIsEditModalOpen(true);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <Edit2 className="w-4 h-4 text-slate-400" />
+                          Edit Job
+                        </button>
+                        <button 
+                          onClick={() => {
+                            // Quick status update toggle logic
+                            const nextStatus = job.status === 'open' ? 'closed' : 'open';
+                            updateJob(job.id, { status: nextStatus });
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <Zap className="w-4 h-4 text-slate-400" />
+                          {job.status === 'open' ? 'Close Job' : 'Open Job'}
+                        </button>
+                        <hr className="my-1 border-slate-100" />
+                        <button 
+                          onClick={() => handleDeleteJob(job.id)}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mb-4">
-                  <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-600 transition-colors cursor-pointer flex items-center gap-2">
+                  <h3 
+                    onClick={() => { setSelectedJob(job); setIsViewDetailOpen(true); }}
+                    className="text-xl font-bold text-slate-900 group-hover:text-indigo-600 transition-colors cursor-pointer flex items-center gap-2"
+                  >
                     {job.title}
                     {job.approvalStatus === 'approved' && <BadgeCheck className="w-4 h-4 text-blue-500" />}
                   </h3>
@@ -183,6 +281,13 @@ export default function Jobs() {
                     <span className="font-medium text-slate-700">
                       {isAdmin || isClient ? (job.clientName || 'Direct Hire') : `ORG-${job.clientId?.slice(0, 8).toUpperCase() || 'PRIVATE'}`}
                     </span>
+                    {job.vendorName && (
+                      <>
+                        <span className="text-slate-300">•</span>
+                        <Zap className="w-3.5 h-3.5 text-orange-500" />
+                        <span className="text-orange-600 text-[10px] font-bold uppercase tracking-wider">{job.vendorName}</span>
+                      </>
+                    )}
                     <span className="text-slate-300">•</span>
                     <MapPin className="w-4 h-4" />
                     <span>{job.location}</span>
@@ -529,6 +634,19 @@ export default function Jobs() {
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => {
+                    setEditJob({
+                      ...selectedJob,
+                      skills: safeArray(selectedJob.skills).join(', ')
+                    });
+                    setIsEditModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white border border-transparent rounded-xl hover:bg-indigo-700 transition-all font-bold text-sm shadow-sm"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit Job
+                </button>
+                <button 
+                  onClick={() => {
                     navigator.clipboard.writeText(selectedJob.description);
                     toast.success('Job Description copied to clipboard');
                   }}
@@ -582,6 +700,141 @@ export default function Jobs() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Job Modal */}
+      {isEditModalOpen && editJob && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 bg-indigo-900 text-white flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold font-sans">Edit Job Assignment</h2>
+                <p className="text-indigo-200 text-xs mt-1">Modify terms, vendors, or position details.</p>
+              </div>
+              <button 
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateJob} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Title</label>
+                <input
+                  type="text"
+                  required
+                  value={editJob.title}
+                  onChange={(e) => setEditJob({...editJob, title: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client Partner</label>
+                <input
+                  type="text"
+                  required
+                  value={editJob.clientName}
+                  onChange={(e) => setEditJob({...editJob, clientName: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Vendor / Agency</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={editJob.vendorName || ''}
+                    onChange={(e) => setEditJob({...editJob, vendorName: e.target.value})}
+                    placeholder="Specify vendor if outsourced"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium placeholder:text-slate-300"
+                  />
+                  <Zap className="absolute left-3 top-3 w-4 h-4 text-orange-400" />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Location</label>
+                <input
+                  type="text"
+                  required
+                  value={editJob.location}
+                  onChange={(e) => setEditJob({...editJob, location: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Type</label>
+                <select
+                  value={editJob.type}
+                  onChange={(e) => setEditJob({...editJob, type: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                >
+                  <option>Full-time</option>
+                  <option>Contract</option>
+                  <option>Freelance</option>
+                  <option>Internship</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Skills</label>
+                <input
+                  type="text"
+                  value={editJob.skills}
+                  onChange={(e) => setEditJob({...editJob, skills: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                <select
+                  value={editJob.status}
+                  onChange={(e) => setEditJob({...editJob, status: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-bold"
+                >
+                  <option value="open">Open</option>
+                  <option value="pending">Pending</option>
+                  <option value="filled">Filled</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </div>
+
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Requirement Details</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={editJob.description}
+                  onChange={(e) => setEditJob({...editJob, description: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none text-sm leading-relaxed font-sans"
+                />
+              </div>
+
+              <div className="md:col-span-2 flex items-center justify-end gap-3 pt-6 border-t border-slate-100 mt-2">
+                <button 
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Discard Changes
+                </button>
+                <button 
+                  type="submit"
+                  className="px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2"
+                >
+                  Save Updates
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

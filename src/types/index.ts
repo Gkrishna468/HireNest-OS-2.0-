@@ -93,6 +93,7 @@ export interface Job {
   broadcastToVendors?: boolean;
   clientId?: string;
   clientName?: string;
+  vendorName?: string;
   userId?: string;
   closedDate?: string;
   createdAt: string;

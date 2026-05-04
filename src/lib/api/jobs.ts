@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '../supabase';
-import { safeQuery, safeInsert, safeUpdate, sanitizeJob } from './base';
+import { safeQuery, safeInsert, safeUpdate, safeDelete, sanitizeJob } from './base';
 import type { Job } from '@/types';
 
 export async function getJobs(): Promise<Job[]> {
@@ -29,7 +29,31 @@ export async function createJob(data: Partial<Job>) {
     approval_status: 'pending',
     client_id: data.clientId,
     client_name: data.clientName,
+    vendor_name: data.vendorName,
   });
+}
+
+export async function updateJob(jobId: string, data: Partial<Job>) {
+  return safeUpdate('jobs', jobId, {
+    title: data.title,
+    description: data.description,
+    location: data.location,
+    type: data.type,
+    salary: data.salary,
+    skills: data.skills,
+    experience_required: data.experienceRequired,
+    openings: data.openings,
+    status: data.status,
+    approval_status: data.approvalStatus,
+    client_id: data.clientId,
+    client_name: data.clientName,
+    vendor_name: data.vendorName,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+export async function deleteJob(jobId: string) {
+  return safeDelete('jobs', jobId);
 }
 
 export async function approveJob(jobId: string, budget: string) {
