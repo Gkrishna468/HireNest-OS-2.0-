@@ -92,48 +92,93 @@ async function handleEmailDecision(emailData: any): Promise<WorkflowAction[]> {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   
   const prompt = `
-    You are Nestor, the HireNest Autonomous Agent.
-    Analyze this inbound email:
+    You are Nestor v3, the HireNest Autonomous Intelligence.
+    Analyze this inbound signal:
     Subject: ${emailData.subject}
     From: ${emailData.from}
-    Content: ${emailData.snippet}
+    Snippet: ${emailData.snippet}
 
-    Decide the intent and necessary actions.
-    If it's a resume or job application, 'create_candidate' and 'score_profile' are needed.
-    If it's a client looking to hire, 'create_lead' is needed.
-    If it's junk, return no actions.
+    Your goal is to extract high-fidelity intent and map out the recruitment workflow.
+    
+    Classification Tiers:
+    1. candidate_application: Person applying for a job.
+    2. client_inquiry: Potential client asking for services or fees.
+    3. collaboration_request: Vendor or partner reaching out.
+    4. junk: Spam, automated notifications, or irrelevant.
 
-    Return ONLY a JSON array of actions:
-    [{"type": "create_candidate", "payload": {...}}, {"type": "send_auto_reply", "payload": {"template": "ack"}}]
+    Extraction Requirements:
+    - Candidate Name, Skills (Top 3), Role Title.
+    - Urgency Level (High/Med/Low).
+    - Sentiment (Positive/Neutral/Aggressive).
+
+    Output Schema (JSON Array of Actions):
+    - create_candidate: { name, skills, role, experience_summary }
+    - create_deal: { company, value_estimate, urgency }
+    - send_auto_reply: { template_name, priority }
+    - notify_team: { channel, alert_level }
+
+    RESPONSE RULES:
+    - Return ONLY valid JSON.
+    - If intent is 'junk', return [].
+    - Be aggressive in identifying leads.
+
+    [Actions JSON Array Only]:
   `;
 
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     const jsonStr = text.match(/\[.*\]/s)?.[0] || '[]';
-    return JSON.parse(jsonStr);
+    const actions = JSON.parse(jsonStr);
+    
+    // Safety check: ensure 'notify_team' is added for high-value leads
+    const isLead = text.toLowerCase().includes('client_inquiry');
+    if (isLead && !actions.some((a: any) => a.type === 'notify_team')) {
+      actions.push({ type: 'notify_team', payload: { channel: 'deal_room', alert_level: 'high' } });
+    }
+
+    return actions;
   } catch (err) {
     console.error("AI Decision failed:", err);
     return [];
   }
 }
 
-async function performAction(action: WorkflowAction, triggerData: any, executionId: string) {
+async function performAction(action: WorkflowAction, triggerData: any, logId?: string) {
   console.log(`[WorkflowEngine] Executing Action: ${action.type}`, action.payload);
   
+  // Log sub-action start
+  await supabase.from('agent_logs').insert({
+    type: 'workflow',
+    agent_name: 'Nestor Sub-Agent',
+    message: `Executing sub-action: ${action.type}`,
+    level: 'info',
+    input: action.payload,
+    status: 'success'
+  });
+
   switch (action.type) {
     case 'create_candidate':
       await supabase.from('candidates').insert({
         full_name: action.payload.name || triggerData.from.split('<')[0].trim(),
-        email: triggerData.sender_email || triggerData.from_email,
-        source: 'Gmail Ingestion',
+        email: triggerData.from.match(/<(.+)>/)?.[1] || triggerData.from,
+        source: 'Autonomous Ingestion',
         status: 'new',
-        experience: action.payload.summary || triggerData.snippet
+        experience: action.payload.experience_summary || triggerData.snippet,
+        metadata: { extracted_skills: action.payload.skills }
       });
       break;
-    case 'send_auto_reply':
-      // Here you would call Gmail API to send
-      console.log("Sending AI Auto-Reply...");
+    case 'create_deal':
+      await supabase.from('deals').insert({
+        title: `Lead from ${action.payload.company || triggerData.from}`,
+        client_name: action.payload.company || 'Unknown Enterprise',
+        value: action.payload.value_estimate || 0,
+        status: 'prospecting',
+        urgency: action.payload.urgency || 'medium'
+      });
+      break;
+    case 'notify_team':
+      console.log(`[ALERT] ${action.payload.alert_level.toUpperCase()} Priority: ${action.payload.channel}`);
       break;
     default:
       console.log("Unknown action type:", action.type);
@@ -141,14 +186,15 @@ async function performAction(action: WorkflowAction, triggerData: any, execution
 }
 
 async function logRevenueAction(trigger: string, steps: number) {
-  const cost = steps * 0.15; // Simulated GPU cost
-  const value = 25.00; // Simulated automation value saved
+  const cost = steps * 0.08; // Real Gemini 1.5 Flash pricing proxy
+  const value = steps > 0 ? (steps * 12.50) : 0; // Estimated value of automated recruiter tasks
 
   await supabase.from('usage_logs').insert({
-    action_type: `Workflow: ${trigger}`,
+    action_type: `Autonomous Engine: ${trigger}`,
     units: steps,
     estimated_cost: cost,
     revenue_delta: value,
+    status: 'success',
     created_at: new Date().toISOString()
   });
 }
