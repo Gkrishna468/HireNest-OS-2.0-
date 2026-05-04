@@ -47,11 +47,11 @@ import { logBillingEvent, PRICING_LOGIC } from '@/lib/billing';
 
 interface OutreachLog {
   id: string;
-  type: 'email' | 'whatsapp' | 'linkedin' | 'match' | 'system';
+  type: 'email' | 'whatsapp' | 'linkedin' | 'match' | 'system' | 'workflow';
   recipient: string;
   subject?: string;
   content: string;
-  status: 'sent' | 'replied' | 'bounced' | 'pending' | 'success' | 'warning' | 'error';
+  status: 'sent' | 'replied' | 'bounced' | 'pending' | 'success' | 'warning' | 'error' | 'completed' | 'failed' | 'running';
   ai_model: string;
   created_at: string;
   job_title?: string;
@@ -69,7 +69,7 @@ export default function IntelligenceCenter() {
   const navigate = useNavigate();
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
   const [executions, setExecutions] = useState<any[]>([]);
-  const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp' | 'match' | 'workflow'>('all');
+  const [filter, setFilter] = useState<'all' | 'email' | 'whatsapp' | 'match' | 'workflow' | 'system'>('all');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [leads, setLeads] = useState<DiscoveryLead[]>([]);
@@ -92,27 +92,7 @@ export default function IntelligenceCenter() {
     fetchLeads();
     fetchRevenueMetrics();
     fetchOutreachLogs();
-    fetchWorkflowExecutions();
   }, []);
-
-  async function fetchWorkflowExecutions() {
-    try {
-      const { data, error } = await supabase
-        .from('workflow_executions')
-        .select('*, workflows(name)')
-        .order('started_at', { ascending: false })
-        .limit(10);
-      
-      if (error && error.message.includes('relation "workflow_executions" does not exist')) {
-        console.warn("Workflow tables not yet created in Supabase.");
-        return;
-      }
-      
-      setExecutions(data || []);
-    } catch (err) {
-      console.error("Executions fetch error:", err);
-    }
-  }
 
   async function fetchRevenueMetrics() {
     try {
@@ -294,12 +274,12 @@ export default function IntelligenceCenter() {
 
     const transformed: OutreachLog[] = (data || []).map(l => ({
       id: l.id,
-      type: l.metadata?.channel || l.type || 'system',
-      recipient: l.metadata?.recipient || 'System Core',
-      subject: l.metadata?.subject || 'Background Sync',
+      type: (l.type === 'workflow' ? 'workflow' : (l.metadata?.channel || l.type || 'system')) as any,
+      recipient: l.metadata?.recipient || (l.type === 'workflow' ? 'Autonomous Node' : 'System Core'),
+      subject: l.metadata?.subject || (l.type === 'workflow' ? `Execution: ${l.input?.trigger || 'Job'}` : 'Background Sync'),
       content: l.message || l.action || 'No description',
-      status: (l.metadata?.status || l.level || l.status) as any,
-      ai_model: 'Gemini-1.5-Flash',
+      status: (l.status || l.metadata?.status || l.level) as any,
+      ai_model: l.agent_name || 'Gemini-1.5-Flash',
       created_at: l.created_at,
       job_title: l.metadata?.jobTitle
     }));
@@ -609,43 +589,6 @@ export default function IntelligenceCenter() {
                   <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
                   Calibrating Neural Streams...
                 </div>
-              ) : filter === 'workflow' ? (
-                executions.map((exe) => (
-                  <div key={exe.id} className="p-6 hover:bg-slate-50 transition-all flex items-start justify-between group">
-                    <div className="flex gap-6">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm bg-purple-50 text-purple-600 group-hover:scale-105 transition-transform">
-                        <Activity className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
-                            Workflow Engine
-                          </span>
-                          <span className="text-[10px] font-bold text-slate-400 italic">
-                            {format(new Date(exe.started_at), 'MMM dd • HH:mm')}
-                          </span>
-                        </div>
-                        <h4 className="text-sm font-black text-slate-900 tracking-tight mt-2 italic group-hover:text-indigo-600 transition-colors">
-                          Workflow: {exe.workflows?.name || 'Inbound Processing'}
-                        </h4>
-                        <p className="text-xs text-slate-500 font-medium mt-1">
-                          Trigger: {JSON.stringify(exe.trigger_data).substring(0, 100)}...
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <div className={cn(
-                        "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border",
-                        exe.status === 'completed' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                        exe.status === 'running' ? "bg-blue-50 text-blue-600 border-blue-100" :
-                        "bg-red-50 text-red-600 border-red-100"
-                      )}>
-                        {exe.status === 'completed' && <CheckCircle2 className="w-3" />}
-                        {exe.status}
-                      </div>
-                    </div>
-                  </div>
-                ))
               ) : outreachLogs.filter(l => filter === 'all' || l.type === filter).map((log) => (
                 <div key={log.id} className="p-6 hover:bg-slate-50 transition-all flex items-start justify-between group">
                   <div className="flex gap-6">
@@ -654,16 +597,21 @@ export default function IntelligenceCenter() {
                       log.type === 'email' ? "bg-indigo-50 text-indigo-600" : 
                       log.type === 'whatsapp' ? "bg-emerald-50 text-emerald-600" :
                       log.type === 'match' ? "bg-purple-50 text-purple-600" :
+                      log.type === 'workflow' ? "bg-amber-50 text-orange-600" :
                       "bg-slate-100 text-slate-600"
                     )}>
                       {log.type === 'email' ? <Mail className="w-5 h-5" /> : 
                        log.type === 'whatsapp' ? <MessageSquare className="w-5 h-5" /> :
                        log.type === 'match' ? <BrainCircuit className="w-5 h-5" /> :
+                       log.type === 'workflow' ? <Zap className="w-5 h-5" /> :
                        <Cpu className="w-5 h-5" />}
                     </div>
                     <div>
                       <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                        <span className={cn(
+                          "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg",
+                          log.type === 'workflow' ? "bg-orange-50 text-orange-600" : "bg-indigo-50 text-indigo-600"
+                        )}>
                           {log.ai_model}
                         </span>
                         <span className="text-[10px] font-bold text-slate-400 italic">
@@ -671,7 +619,7 @@ export default function IntelligenceCenter() {
                         </span>
                       </div>
                       <h4 className="text-sm font-black text-slate-900 tracking-tight mt-2 italic group-hover:text-indigo-600 transition-colors">
-                        Action: {log.recipient === 'System Core' ? 'Background Process' : `To: ${log.recipient}`}
+                        {log.subject} {log.recipient !== 'System Core' && `→ ${log.recipient}`}
                       </h4>
                       <p className="text-sm text-slate-500 font-medium mt-1 leading-relaxed max-w-2xl">
                         "{log.content}"
@@ -682,13 +630,14 @@ export default function IntelligenceCenter() {
                   <div className="flex flex-col items-end gap-3">
                     <div className={cn(
                       "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border",
-                      (log.status === 'sent' || log.status === 'success') ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                      (log.status === 'sent' || log.status === 'success' || log.status === 'completed') ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                       log.status === 'replied' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
-                      (log.status === 'error' || log.status === 'bounced') ? "bg-red-50 text-red-600 border-red-100" :
+                      (log.status === 'error' || log.status === 'bounced' || log.status === 'failed') ? "bg-red-50 text-red-600 border-red-100" :
                       "bg-slate-50 text-slate-500 border-slate-100"
                     )}>
-                      {(log.status === 'sent' || log.status === 'success') && <CheckCircle2 className="w-3 h-3" />}
-                      {(log.status === 'error' || log.status === 'bounced') && <AlertCircle className="w-3 h-3" />}
+                      {(log.status === 'sent' || log.status === 'success' || log.status === 'completed') && <CheckCircle2 className="w-3 h-3" />}
+                      {(log.status === 'error' || log.status === 'bounced' || log.status === 'failed') && <AlertCircle className="w-3 h-3" />}
+                      {log.status === 'pending' ? <Clock className="w-3 h-3 animate-pulse" /> : null}
                       {log.status}
                     </div>
                     <button 

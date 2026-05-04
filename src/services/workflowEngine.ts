@@ -1,206 +1,154 @@
+import { supabase } from '@/lib/supabase';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-import { supabase } from "@/lib/supabase";
-import { callAISecureProxy } from "@/lib/ai";
-import { toast } from "sonner";
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
-export interface WorkflowEvent {
+export enum WorkflowTrigger {
+  EMAIL_RECEIVED = 'email_received',
+  CANDIDATE_INGESTED = 'candidate_ingested',
+  JOB_CREATED = 'job_created',
+  MANUAL = 'manual'
+}
+
+export interface WorkflowAction {
   type: string;
-  data: any;
+  payload: any;
 }
 
-/**
- * TRIGGER HANDLER
- * Entry point for any system event.
- */
-export async function handleWorkflowTrigger(event: WorkflowEvent) {
-  try {
-    const { data: workflows, error } = await supabase
-      .from('workflows')
-      .select('*')
-      .eq('trigger_type', event.type)
-      .eq('is_active', true);
-
-    if (error) throw error;
-    if (!workflows || workflows.length === 0) return;
-
-    for (const wf of workflows) {
-      await runWorkflow(wf, event.data);
-    }
-  } catch (err) {
-    console.error("Trigger handling failed:", err);
-  }
+export async function handleWorkflowTrigger(data: { type: string; data: any }) {
+  await executeWorkflow(data.type as WorkflowTrigger, data.data);
 }
 
-/**
- * CORE ENGINE
- * Executes steps in sequence.
- */
-export async function runWorkflow(workflow: any, data: any) {
-  const { data: steps, error: stepError } = await supabase
-    .from('workflow_steps')
-    .select('*')
-    .eq('workflow_id', workflow.id)
-    .order('step_order', { ascending: true });
-
-  if (stepError || !steps) return;
-
-  // 1. Initial Execution Record
-  const { data: execution, error: exeError } = await supabase
-    .from('workflow_executions')
+export async function executeWorkflow(trigger: WorkflowTrigger, data: any) {
+  console.log(`[WorkflowEngine] Triggered: ${trigger}`, data);
+  const startTime = Date.now();
+  
+  // 1. Create Initial Agent Log
+  const { data: logEntry, error: logError } = await supabase
+    .from('agent_logs')
     .insert({
-      workflow_id: workflow.id,
-      trigger_data: data,
-      status: 'running',
-      started_at: new Date().toISOString()
+      type: 'workflow',
+      agent_name: 'Nestor Autonomous Engine',
+      message: `Initiating ${trigger} workflow chain...`,
+      status: 'pending',
+      input: { trigger, data },
+      level: 'info',
+      created_at: new Date().toISOString()
     })
     .select()
     .single();
 
-  if (exeError) return;
-
-  let context = { ...data };
+  if (logError) {
+    console.error("Workflow logging error:", logError);
+    // Fallback to non-logged execution if metadata table is missing
+  }
 
   try {
-    for (const step of steps) {
-      // Log step start
-      console.log(`Executing step: ${step.step_type} for workflow ${workflow.name}`);
-      
-      if (step.step_type === "ai_decision") {
-        context = await runAI(context, step.config?.prompt);
-      } else if (step.step_type === "action") {
-        await executeAction(step.config, context);
-      }
+    let resultActions: WorkflowAction[] = [];
+
+    // 2. AI Decision Layer (Autonomous)
+    if (trigger === WorkflowTrigger.EMAIL_RECEIVED) {
+      resultActions = await handleEmailDecision(data);
     }
 
-    // 2. Mark Completion
-    await supabase
-      .from('workflow_executions')
-      .update({ 
-        status: 'completed', 
-        completed_at: new Date().toISOString() 
-      })
-      .eq('id', execution.id);
+    // 3. Execution Layer
+    for (const action of resultActions) {
+      await performAction(action, data, logEntry?.id);
+    }
 
-  } catch (error: any) {
-    console.error("Workflow execution failed:", error);
-    await supabase
-      .from('workflow_executions')
-      .update({ 
-        status: 'failed', 
-        completed_at: new Date().toISOString() 
-      })
-      .eq('id', execution.id);
-      
-    // Log failure in agent logs
-    await supabase.from('agent_logs').insert({
-      agent_name: 'Workflow Orchestrator',
-      type: 'workflow_error',
-      level: 'error',
-      message: `Workflow ${workflow.name} failed: ${error.message}`,
-      metadata: { workflowId: workflow.id, executionId: execution.id }
-    });
+    // 4. Update Log with Results
+    if (logEntry) {
+      await supabase
+        .from('agent_logs')
+        .update({ 
+          status: 'success', 
+          decision: { actions_found: resultActions.length, actions: resultActions },
+          execution_time_ms: Date.now() - startTime,
+          message: `Autonomous workflow completed. Executed ${resultActions.length} steps.`
+        })
+        .eq('id', logEntry.id);
+    }
+
+    // 5. Log Revenue Intelligence
+    await logRevenueAction(trigger, resultActions.length);
+
+  } catch (err: any) {
+    console.error("Workflow Execution Failed:", err);
+    if (logEntry) {
+      await supabase
+        .from('agent_logs')
+        .update({ 
+          status: 'error', 
+          level: 'error',
+          message: `Workflow failed: ${err.message}`,
+          execution_time_ms: Date.now() - startTime
+        })
+        .eq('id', logEntry.id);
+    }
   }
 }
 
-/**
- * AI DECISION LAYER (NESTOR)
- * Handles semantic logic and branch decisions.
- */
-async function runAI(input: any, customPrompt?: string) {
-  const prompt = customPrompt || `
-    You are Nestor, the AI Chief of HireNest.
-    Analyze the provided input and return a structured JSON decision.
-    
-    INPUT DATA:
-    ${JSON.stringify(input)}
-    
-    Format your response EXACTLY as JSON:
-    {
-      "intent": "classification of the input (e.g., candidate_application, lead_inquiry)",
-      "confidence": 0.0 to 1.0,
-      "action": "recommended_next_step",
-      "data": { "extracted_key_info": "value" }
-    }
+async function handleEmailDecision(emailData: any): Promise<WorkflowAction[]> {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
+  const prompt = `
+    You are Nestor, the HireNest Autonomous Agent.
+    Analyze this inbound email:
+    Subject: ${emailData.subject}
+    From: ${emailData.from}
+    Content: ${emailData.snippet}
+
+    Decide the intent and necessary actions.
+    If it's a resume or job application, 'create_candidate' and 'score_profile' are needed.
+    If it's a client looking to hire, 'create_lead' is needed.
+    If it's junk, return no actions.
+
+    Return ONLY a JSON array of actions:
+    [{"type": "create_candidate", "payload": {...}}, {"type": "send_auto_reply", "payload": {"template": "ack"}}]
   `;
 
-  const response = await callAISecureProxy(prompt);
-  const cleanJson = response.replace(/```json|```/g, "").trim();
-  const decision = JSON.parse(cleanJson);
-
-  // Persistence: Agent Log
-  await supabase.from('agent_logs').insert({
-    agent_name: 'Nestor AI',
-    type: 'ai_decision',
-    level: 'info',
-    message: `[NESTOR] Intent perceived: ${decision.intent} with ${Math.round(decision.confidence * 100)}% confidence.`,
-    input: input,
-    decision: decision
-  });
-
-  return { ...input, ai_decision: decision };
-}
-
-/**
- * ACTION HANDLERS
- * Physical execution of system tasks.
- */
-async function executeAction(config: any, context: any) {
-  const actionType = config.type;
-
-  // 1. Revenue & Usage Tracking (Real margins)
-  const costMap: Record<string, number> = {
-    'create_candidate': 5,
-    'send_email': 2,
-    'send_whatsapp': 2,
-    'create_deal': 10,
-    'ai_reply': 3
-  };
-
-  await logUsage(actionType, costMap[actionType] || 1);
-
-  // 2. Task Execution
-  console.log(`[ACTION] Executing: ${actionType}`);
-
-  switch (actionType) {
-    case "create_candidate": {
-      const { createCandidate } = await import('@/lib/api/candidates');
-      await createCandidate(context.ai_decision?.data || context);
-      break;
-    }
-    case "send_email": {
-      // Simulating email dispatch via Gmail Node
-      await supabase.from('agent_logs').insert({
-        agent_name: 'Email Agent',
-        type: 'action',
-        level: 'success',
-        message: `Auto-replied to ${context.email || 'recipient'} via Neural Gmail.`,
-        metadata: { channel: 'email' }
-      });
-      break;
-    }
-    case "create_deal": {
-      const { recordDeal } = await import('./financialService');
-      if (context.job && context.candidate) {
-        await recordDeal(context.job, context.candidate, context.value || 100000);
-      }
-      break;
-    }
-    default:
-      console.warn(`Unknown action type: ${actionType}`);
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const jsonStr = text.match(/\[.*\]/s)?.[0] || '[]';
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    console.error("AI Decision failed:", err);
+    return [];
   }
 }
 
-/**
- * REVENUE TRACKING LAYER
- */
-async function logUsage(actionType: string, cost: number) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+async function performAction(action: WorkflowAction, triggerData: any, executionId: string) {
+  console.log(`[WorkflowEngine] Executing Action: ${action.type}`, action.payload);
+  
+  switch (action.type) {
+    case 'create_candidate':
+      await supabase.from('candidates').insert({
+        full_name: action.payload.name || triggerData.from.split('<')[0].trim(),
+        email: triggerData.sender_email || triggerData.from_email,
+        source: 'Gmail Ingestion',
+        status: 'new',
+        experience: action.payload.summary || triggerData.snippet
+      });
+      break;
+    case 'send_auto_reply':
+      // Here you would call Gmail API to send
+      console.log("Sending AI Auto-Reply...");
+      break;
+    default:
+      console.log("Unknown action type:", action.type);
+  }
+}
+
+async function logRevenueAction(trigger: string, steps: number) {
+  const cost = steps * 0.15; // Simulated GPU cost
+  const value = 25.00; // Simulated automation value saved
 
   await supabase.from('usage_logs').insert({
-    user_id: user.id,
-    action_type: actionType,
-    cost: cost,
-    metadata: { timestamp: new Date().toISOString(), env: 'production' }
+    action_type: `Workflow: ${trigger}`,
+    units: steps,
+    estimated_cost: cost,
+    revenue_delta: value,
+    created_at: new Date().toISOString()
   });
 }
