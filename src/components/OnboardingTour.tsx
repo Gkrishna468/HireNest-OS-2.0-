@@ -52,14 +52,18 @@ export default function OnboardingTour() {
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
-    const hasSeen = localStorage.getItem('hirenest_onboard_v1');
-    if (!hasSeen) {
-      setTimeout(() => setIsOpen(true), 2000);
+    if (typeof localStorage !== 'undefined') {
+      const hasSeen = localStorage.getItem('hirenest_onboard_v1');
+      if (!hasSeen) {
+        setTimeout(() => setIsOpen(true), 2000);
+      }
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem('hirenest_onboard_v1', 'true');
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('hirenest_onboard_v1', 'true');
+    }
     setIsOpen(false);
   };
 

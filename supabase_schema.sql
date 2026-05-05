@@ -2,9 +2,17 @@
 CREATE TABLE IF NOT EXISTS companies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  type TEXT CHECK (type IN ('client', 'vendor', 'internal')),
+  type TEXT DEFAULT 'client' CHECK (type IN ('client', 'vendor', 'internal')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure type column exists (Migration patch for existing DBs)
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='type') THEN
+    ALTER TABLE companies ADD COLUMN type TEXT;
+  END IF;
+END $$;
 
 -- 2. Agreements (MSA/NDA Tracking)
 CREATE TABLE IF NOT EXISTS agreements (

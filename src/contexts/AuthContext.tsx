@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkSession = async () => {
       try {
         // Check for Executive Session first
-        const execSession = localStorage.getItem('hirenest_exec_session');
+        const execSession = typeof localStorage !== 'undefined' ? localStorage.getItem('hirenest_exec_session') : null;
         if (execSession) {
           setUser(JSON.parse(execSession));
           setLoading(false);
@@ -130,7 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    localStorage.removeItem('hirenest_exec_session');
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('hirenest_exec_session');
+    }
     await supabase.auth.signOut();
     setUser(null);
   };

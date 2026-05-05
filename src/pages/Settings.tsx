@@ -32,14 +32,14 @@ export default function Settings() {
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
 
   const [supabaseConfig, setSupabaseConfig] = useState({
-    url: localStorage.getItem('hirenest_supabase_url') || '',
-    anonKey: localStorage.getItem('hirenest_supabase_anon_key') || '',
+    url: (typeof localStorage !== 'undefined' ? localStorage.getItem('hirenest_supabase_url') : '') || '',
+    anonKey: (typeof localStorage !== 'undefined' ? localStorage.getItem('hirenest_supabase_anon_key') : '') || '',
   });
 
   const [gmailConfig, setGmailConfig] = useState({
-    clientId: localStorage.getItem('hirenest_gmail_client_id') || '',
+    clientId: (typeof localStorage !== 'undefined' ? localStorage.getItem('hirenest_gmail_client_id') : '') || '',
     clientSecret: '••••••••••••••••',
-    redirectUri: window.location.origin + '/auth/callback',
+    redirectUri: typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : '',
     webhookUrl: 'https://api.hirenest.com/v1/webhooks/gmail'
   });
 
@@ -56,8 +56,10 @@ export default function Settings() {
   const saveSupabase = async () => {
     setLoading(true);
     try {
-      localStorage.setItem('hirenest_supabase_url', supabaseConfig.url);
-      localStorage.setItem('hirenest_supabase_anon_key', supabaseConfig.anonKey);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('hirenest_supabase_url', supabaseConfig.url);
+        localStorage.setItem('hirenest_supabase_anon_key', supabaseConfig.anonKey);
+      }
       reinitializeSupabase();
       toast.success('Supabase configuration updated and reinitialized');
     } catch (err) {

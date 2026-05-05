@@ -52,7 +52,7 @@ export async function getVendorPerformance(vendorId: string): Promise<VendorPerf
 }
 
 export async function getAllVendorRatings(): Promise<Record<string, VendorPerformance>> {
-  const { data: vendors } = await supabase.from('companies').select('id').eq('type', 'vendor');
+  const { data: vendors } = await supabase.from('vendors').select('id');
   
   const ratings: Record<string, VendorPerformance> = {};
   

@@ -29,8 +29,8 @@ export async function broadcastJob(jobId: string) {
     
   if (error) throw error;
 
-  // 1. Fetch matching vendors (simulate)
-  const { data: vendors } = await supabase.from('companies').select('*').eq('type', 'vendor').limit(5);
+  // 1. Fetch matching vendors (using actual vendors table)
+  const { data: vendors } = await supabase.from('vendors').select('*').limit(5);
 
   // 2. SYSTEM LOG
   await supabase.from('agent_logs').insert({
