@@ -71,6 +71,7 @@ export async function recordDeal(job: any, candidate: any, amount: number) {
       client_name: job.clientName || 'Direct',
       job_title: job.title,
       candidate_name: candidate.name,
+      vendor_id: candidate.vendor_id || candidate.vendor_company_id,
       revenue_amount: amount,
       status: 'pipeline'
     });

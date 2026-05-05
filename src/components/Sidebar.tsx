@@ -25,7 +25,8 @@ import {
   BrainCircuit,
   Mail,
   Cpu,
-  Coins
+  Coins,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,8 @@ const navItems = [
   { icon: FileText, label: 'Neural Parsing', path: '/resumes' },
   { icon: Zap, label: 'Match Engine', path: '/ai-matching' },
   { icon: TrendingUp, label: 'Recruiter Pipeline', path: '/pipeline' },
+  { icon: History, label: 'Activity Logs', path: '/activity' },
+  { icon: Activity, label: 'AI Monitor', path: '/ai-monitor' },
   { icon: Settings, label: 'OS Settings', path: '/settings' },
 ];
 

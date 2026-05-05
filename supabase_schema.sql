@@ -131,7 +131,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- 6. Candidates (Vendor Owned)
 CREATE TABLE IF NOT EXISTS candidates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  vendor_company_id UUID REFERENCES companies(id),
+  vendor_id UUID REFERENCES vendors(id), -- Direct link to the source vendor
+  vendor_company_id UUID REFERENCES companies(id), -- Legacy company link
   user_id UUID,
   name TEXT NOT NULL,
   email TEXT,
@@ -147,6 +148,25 @@ CREATE TABLE IF NOT EXISTS candidates (
   ai_match_score NUMERIC DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- AI Match Results Caching Layer
+CREATE TABLE IF NOT EXISTS match_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  candidate_id UUID REFERENCES candidates(id) ON DELETE CASCADE,
+  score INT NOT NULL,
+  matched_skills TEXT[] DEFAULT '{}',
+  missing_skills TEXT[] DEFAULT '{}',
+  explanation TEXT,
+  metadata JSONB DEFAULT '{}',
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  UNIQUE (job_id, candidate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_results_job_id ON match_results(job_id);
+CREATE INDEX IF NOT EXISTS idx_match_results_candidate_id ON match_results(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_match_results_score ON match_results(score);
 
 -- Ensure candidates columns exist for leads/automation
 DO $$ 

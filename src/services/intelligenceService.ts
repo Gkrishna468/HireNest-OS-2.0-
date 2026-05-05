@@ -128,12 +128,34 @@ function fuzzyMatch(skill: string, candidateSkills: string[]) {
 /**
  * Neural Matcher: Semantic comparison between Job and Candidate.
  * Strategic Weights: 60% Skills, 20% Experience, 20% Semantic Alignment.
+ * Includes Caching Layer to minimize AI costs.
  */
 export async function scoreCandidateForJob(job: any, candidate: any): Promise<MatchResult> {
   const jobSkills = (job.skills || []).map(normalize);
   const candSkills = (candidate.skills || []).map(normalize);
   
-  // High-fidelity heuristic pre-score
+  // 1. Check Cache Layer First
+  if (job.id && candidate.id) {
+    const { data: cached } = await supabase
+      .from('match_results')
+      .select('*')
+      .eq('job_id', job.id)
+      .eq('candidate_id', candidate.id)
+      .maybeSingle();
+
+    if (cached) {
+      return {
+        score: cached.score,
+        reasoning: cached.explanation || "Retrieved from neural cache.",
+        gaps: cached.missing_skills || [],
+        recommendation: cached.score >= 70 ? 'shortlist' : 'reserve',
+        matchedSkills: cached.matched_skills || [],
+        missingSkills: cached.missing_skills || []
+      };
+    }
+  }
+
+  // 2. High-fidelity heuristic pre-score
   const matched = jobSkills.filter(s => fuzzyMatch(s, candSkills));
   const skillScore = jobSkills.length > 0 ? (matched.length / jobSkills.length) * 100 : 0;
   const expMatch = candidate.experience >= (job.min_experience || 0) ? 100 : 60;
@@ -162,33 +184,69 @@ export async function scoreCandidateForJob(job: any, candidate: any): Promise<Ma
     }
   `;
 
+  let matchResult: MatchResult;
+  const startTime = Date.now();
+
   try {
     const raw = await callAISecureProxy(prompt, { model: 'gemini-1.5-pro', useProxy: true });
     if (!raw) throw new Error("Empty AI response");
     const cleanJson = raw.replace(/```json|```/g, "").trim();
     const result = JSON.parse(cleanJson);
     
-    // Balanced Score: AI judgment mixed with hard heuristic to prevent halluciations or overly strict filters
+    // Balanced Score calculation
     const finalScore = Math.round((result.score * 0.5) + (skillScore * 0.4) + (expMatch * 0.1));
     
-    return {
+    matchResult = {
       ...result,
       score: finalScore,
       matchedSkills: matched,
       missingSkills: jobSkills.filter(s => !matched.includes(s))
     } as any;
+
+    // 3. Update Cache
+    if (job.id && candidate.id) {
+      await supabase.from('match_results').upsert({
+        job_id: job.id,
+        candidate_id: candidate.id,
+        score: finalScore,
+        matched_skills: matched,
+        missing_skills: jobSkills.filter(s => !matched.includes(s)),
+        explanation: result.reasoning,
+        metadata: { 
+          latency_ms: Date.now() - startTime,
+          model: 'gemini-1.5-pro'
+        }
+      }, { onConflict: 'job_id, candidate_id' });
+    }
+
   } catch (error) {
     console.error("AI Matching Error, triggering heuristic fallback:", error);
-    
-    return { 
+    matchResult = { 
       score: Math.round(skillScore * 0.8 + expMatch * 0.2), 
-      reasoning: `Matched ${matched.length} key technical nodes.`, 
+      reasoning: `Matched ${matched.length} key technical nodes. (Heuristic Fallback)`, 
       gaps: jobSkills.filter(s => !matched.includes(s)),
       recommendation: skillScore >= 50 ? 'shortlist' : 'reserve',
       matchedSkills: matched,
       missingSkills: jobSkills.filter(s => !matched.includes(s))
     } as any;
   }
+
+  // 4. Log AI Execution for Monitoring
+  await supabase.from('agent_logs').insert({
+    type: 'ai_match_execution',
+    agent_name: 'Neural Matcher',
+    message: `Evaluated ${candidate.name || 'Candidate'} for ${job.title}. Score: ${matchResult.score}%`,
+    level: 'info',
+    status: 'success',
+    metadata: {
+      latency_ms: Date.now() - startTime,
+      jobId: job.id,
+      candidateId: candidate.id,
+      source: job.id && candidate.id ? 'ai_primary' : 'heuristic_only'
+    }
+  });
+
+  return matchResult;
 }
 
 /**

@@ -31,6 +31,8 @@ import WhatsAppCenter from './pages/WhatsAppCenter';
 import CollaborationHub from './pages/CollaborationHub';
 import Marketplace from './pages/Marketplace';
 import AgentChat from './pages/AgentChat';
+import AIMonitor from './pages/AIMonitor';
+import ActivityLogs from './pages/ActivityLogs';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
@@ -83,6 +85,8 @@ export default function App() {
             <Route path="/marketplace" element={<PrivateRoute><Marketplace /></PrivateRoute>} />
             <Route path="/collaboration" element={<PrivateRoute><CollaborationHub /></PrivateRoute>} />
             <Route path="/agent-chat" element={<PrivateRoute><AgentChat /></PrivateRoute>} />
+            <Route path="/ai-monitor" element={<PrivateRoute><AIMonitor /></PrivateRoute>} />
+            <Route path="/activity" element={<PrivateRoute><ActivityLogs /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

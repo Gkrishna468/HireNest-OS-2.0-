@@ -118,6 +118,14 @@ export default function Resumes() {
         });
 
         // 4. Auto-create Candidate with AI-parsed data
+        // Fetch vendor_id if exists
+        const { data: userProfile } = await supabase.from('profiles').select('company_id').eq('id', (await supabase.auth.getUser()).data.user?.id).maybeSingle();
+        let vendorId = null;
+        if (userProfile?.company_id) {
+          const { data: vendorNode } = await supabase.from('vendors').select('id').eq('company_id', userProfile.company_id).maybeSingle();
+          vendorId = vendorNode?.id;
+        }
+
         const { error: candidateError } = await supabase
           .from('candidates')
           .insert({
@@ -131,7 +139,9 @@ export default function Resumes() {
             resume_url: publicUrl,
             source: 'resume',
             status: 'active',
-            stage: 'screening' // Moved to screening automatically
+            stage: 'screening', // Moved to screening automatically
+            vendor_id: vendorId, // LINKED!
+            vendor_company_id: userProfile?.company_id // Legacy support
           });
 
         if (candidateError) throw candidateError;
